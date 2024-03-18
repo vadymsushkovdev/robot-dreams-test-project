@@ -6,40 +6,22 @@ pragma solidity ^0.8.24;
 /// @title Domain Registry Interface
 /// @notice This interface defines the methods required for interacting with a domain registry contract.
 interface IDomainRegistry {
-    /// @dev Struct representing a booking of a domain name.
-    struct DomainNameBooking {
-        address controller; // The address of the controller of the domain
-        uint256 registrationTimeStamp; // The timestamp when the domain was registered
-    }
+    /// Add new domain
+    /// @dev Checks if "domain" is not existing and sets record to "domainList"
+    /// @param domain The domain name
+    function addNewDomain(string calldata domain) external;
 
-    /// @dev Event emitted when a domain is registered.
-    /// @param domain The domain name.
-    /// @param controller The address of the controller of the domain.
-    /// @param registrationTimeStamp The timestamp when the domain was registered.
-    event DomainRegistered(
-        string domain,
-        address indexed controller,
-        uint256 indexed registrationTimeStamp
-    );
+    /// Change price for domain registration
+    /// @dev Sets "newPrice" to "registrationPrice"
+    /// @param newPrice The new price of the domain
+    function changePrice(int256 newPrice) external;
 
-    /// @dev Function to add a new domain with its price.
-    /// @param domain The domain name.
-    /// @param price The price of the domain.
-    function addNewDomain(string calldata domain, uint256 price)
-        external;
+    /// Buying a domain
+    /// @dev Checks if amount value is correct and "domain" is available, sets data to "domainList" and then emits "DomainRegistered"
+    /// @param domain The domain
+    function buyDomain(string calldata domain) external payable;
 
-    /// @dev Function to change the price of a domain.
-    /// @param domain The domain name.
-    /// @param newPrice The new price of the domain.
-    function changePrice(string calldata domain, uint256 newPrice)
-        external;
-
-    /// @dev Function to buy a domain.
-    /// @param domain The domain name.
-    function buyDomain(
-        string calldata domain
-    ) external payable;
-
-    /// @dev Function to withdraw funds from the contract
+    /// Withdraw money to the owner of the contract
+    /// @dev Checks if the contract balance is not empty and then makes withdraw to "owner"
     function withdraw() external;
 }

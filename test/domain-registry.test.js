@@ -9,10 +9,11 @@ describe('DomainRegistry', function () {
 
   beforeEach(async function () {
     [owner, addr1] = await ethers.getSigners();
+    const price = ethers.parseEther('0.1');
 
     DomainRegistry =
       await ethers.getContractFactory('DomainRegistry');
-    domainRegistry = await DomainRegistry.deploy();
+    domainRegistry = await DomainRegistry.deploy(price);
     await domainRegistry.waitForDeployment();
   });
 
@@ -23,68 +24,66 @@ describe('DomainRegistry', function () {
   });
 
   describe('addNewDomain', function () {
-    it('Should add a new domain with its price', async function () {
+    it('Should add a new domain', async function () {
       const domain = 'com';
-      const price = ethers.parseEther('0.1');
+      const expectingValues = [
+        '0x0000000000000000000000000000000000000000',
+        0n,
+        true,
+      ];
 
-      await domainRegistry.addNewDomain(domain, price);
+      await domainRegistry.addNewDomain(domain);
 
-      expect(await domainRegistry.domainPrices(domain)).to.equal(
-        price
+      expect(await domainRegistry.domainList(domain)).to.eql(
+        expectingValues
       );
     });
 
     it('Should revert if domain already exists', async function () {
       const domain = 'com';
-      const price = ethers.parseEther('0.1');
 
-      await domainRegistry.addNewDomain(domain, price);
+      await domainRegistry.addNewDomain(domain);
 
       await expect(
-        domainRegistry.addNewDomain(domain, price)
-      ).to.be.revertedWith('Domain Already Exists');
+        domainRegistry.addNewDomain(domain)
+      ).to.be.revertedWithCustomError(
+        domainRegistry,
+        'DomainAlreadyExists'
+      );
     });
 
     it('Should revert if called by non-owner', async function () {
       const domain = 'com';
-      const price = ethers.parseEther('0.1');
 
       await expect(
-        domainRegistry.connect(addr1).addNewDomain(domain, price)
-      ).to.be.revertedWith('Forbidden Resource');
+        domainRegistry.connect(addr1).addNewDomain(domain)
+      ).to.be.revertedWithCustomError(
+        domainRegistry,
+        'ForbiddenResource'
+      );
     });
   });
 
   describe('changePrice', function () {
-    it('Should change the price of an existing domain', async function () {
-      const domain = 'com';
-      const initialPrice = ethers.parseEther('0.1');
+    it('Should change the registration price', async function () {
       const newPrice = ethers.parseEther('0.2');
 
-      await domainRegistry.addNewDomain(domain, initialPrice);
-      await domainRegistry.changePrice(domain, newPrice);
+      await domainRegistry.changePrice(newPrice);
 
-      expect(await domainRegistry.domainPrices(domain)).to.equal(
+      expect(await domainRegistry.registrationPrice()).to.equal(
         newPrice
       );
     });
 
-    it('Should revert if domain does not exist', async function () {
-      const domain = 'com';
-      const price = ethers.parseEther('0.1');
-
-      await expect(
-        domainRegistry.changePrice(domain, price)
-      ).to.be.revertedWith('Domain Does Not Exists');
-    });
-
     it('Should revert if called by non-owner', async function () {
-      const domain = 'com';
       const price = ethers.parseEther('0.1');
 
       await expect(
-        domainRegistry.connect(addr1).changePrice(domain, price)
-      ).to.be.revertedWith('Forbidden Resource');
+        domainRegistry.connect(addr1).changePrice(price)
+      ).to.be.revertedWithCustomError(
+        domainRegistry,
+        'ForbiddenResource'
+      );
     });
   });
 
@@ -93,7 +92,7 @@ describe('DomainRegistry', function () {
       const domain = 'com';
       const price = ethers.parseEther('0.1');
 
-      await domainRegistry.addNewDomain(domain, price);
+      await domainRegistry.addNewDomain(domain);
 
       const buyDomainTransaction = await domainRegistry.buyDomain(
         domain,
@@ -116,27 +115,33 @@ describe('DomainRegistry', function () {
       const domain = 'com';
       const price = ethers.parseEther('0.1');
 
-      await domainRegistry.addNewDomain(domain, price);
+      await domainRegistry.addNewDomain(domain);
       await domainRegistry.buyDomain(domain, { value: price });
 
       await expect(
         domainRegistry.buyDomain(domain, {
           value: price,
         })
-      ).to.be.revertedWith('Domain Already Taken');
+      ).to.be.revertedWithCustomError(
+        domainRegistry,
+        'DomainAlreadyTaken'
+      );
     });
 
     it('Should revert if value sent is incorrect', async function () {
       const domain = 'com';
       const price = ethers.parseEther('0.1');
 
-      await domainRegistry.addNewDomain(domain, price);
+      await domainRegistry.addNewDomain(domain);
 
       await expect(
         domainRegistry.buyDomain(domain, {
           value: price / BigInt(2),
         })
-      ).to.be.revertedWith('Incorrect Value Amount');
+      ).to.be.revertedWithCustomError(
+        domainRegistry,
+        'IncorrectValueAmount'
+      );
     });
 
     it('Should revert if domain does not exist', async function () {
@@ -145,7 +150,10 @@ describe('DomainRegistry', function () {
 
       await expect(
         domainRegistry.buyDomain(domain, { value: price })
-      ).to.be.revertedWith('Domain Does Not Exists');
+      ).to.be.revertedWithCustomError(
+        domainRegistry,
+        'DomainNotFound'
+      );
     });
   });
 
@@ -154,7 +162,7 @@ describe('DomainRegistry', function () {
       const domain = 'com';
       const price = ethers.parseEther('0.1');
 
-      await domainRegistry.addNewDomain(domain, price);
+      await domainRegistry.addNewDomain(domain);
       await domainRegistry.buyDomain(domain, {
         value: price,
       });
@@ -179,13 +187,19 @@ describe('DomainRegistry', function () {
     it('Should revert if contract balance is zero', async function () {
       await expect(
         domainRegistry.connect(owner).withdraw()
-      ).to.be.revertedWith('Nothing To Withdraw');
+      ).to.be.revertedWithCustomError(
+        domainRegistry,
+        'NothingToWithdraw'
+      );
     });
 
     it('Should revert if called by non-owner', async function () {
       await expect(
         domainRegistry.connect(addr1).withdraw()
-      ).to.be.revertedWith('Forbidden Resource');
+      ).to.be.revertedWithCustomError(
+        domainRegistry,
+        'ForbiddenResource'
+      );
     });
   });
 
@@ -199,20 +213,20 @@ describe('DomainRegistry', function () {
 
       const price = ethers.parseEther('0.1');
 
-      await domainRegistry.addNewDomain(firstDomain, price);
-      await domainRegistry.addNewDomain(secondDomain, price * 2n);
-      await domainRegistry.addNewDomain(thirdDomain, price * 3n);
-      await domainRegistry.addNewDomain(fourthDomain, price * 4n);
+      await domainRegistry.addNewDomain(firstDomain);
+      await domainRegistry.addNewDomain(secondDomain);
+      await domainRegistry.addNewDomain(thirdDomain);
+      await domainRegistry.addNewDomain(fourthDomain);
 
       await domainRegistry.buyDomain(firstDomain, { value: price });
       await domainRegistry.buyDomain(secondDomain, {
-        value: price * 2n,
+        value: price,
       });
       await domainRegistry.buyDomain(thirdDomain, {
-        value: price * 3n,
+        value: price,
       });
       await domainRegistry.buyDomain(fourthDomain, {
-        value: price * 4n,
+        value: price,
       });
 
       const filter = domainRegistry.filters.DomainRegistered();
@@ -230,20 +244,20 @@ describe('DomainRegistry', function () {
 
       const price = ethers.parseEther('0.1');
 
-      await domainRegistry.addNewDomain(firstDomain, price);
-      await domainRegistry.addNewDomain(secondDomain, price * 2n);
-      await domainRegistry.addNewDomain(thirdDomain, price * 3n);
-      await domainRegistry.addNewDomain(fourthDomain, price * 4n);
+      await domainRegistry.addNewDomain(firstDomain);
+      await domainRegistry.addNewDomain(secondDomain);
+      await domainRegistry.addNewDomain(thirdDomain);
+      await domainRegistry.addNewDomain(fourthDomain);
 
       await domainRegistry.buyDomain(firstDomain, { value: price });
       await domainRegistry.buyDomain(secondDomain, {
-        value: price * 2n,
+        value: price,
       });
       await domainRegistry.buyDomain(thirdDomain, {
-        value: price * 3n,
+        value: price,
       });
       await domainRegistry.buyDomain(fourthDomain, {
-        value: price * 4n,
+        value: price,
       });
 
       const filter = domainRegistry.filters.DomainRegistered();
@@ -273,20 +287,20 @@ describe('DomainRegistry', function () {
 
       const price = ethers.parseEther('0.1');
 
-      await domainRegistry.addNewDomain(firstDomain, price);
-      await domainRegistry.addNewDomain(secondDomain, price * 2n);
-      await domainRegistry.addNewDomain(thirdDomain, price * 3n);
-      await domainRegistry.addNewDomain(fourthDomain, price * 4n);
+      await domainRegistry.addNewDomain(firstDomain);
+      await domainRegistry.addNewDomain(secondDomain);
+      await domainRegistry.addNewDomain(thirdDomain);
+      await domainRegistry.addNewDomain(fourthDomain);
 
       await domainRegistry.buyDomain(firstDomain, { value: price });
       await domainRegistry.connect(addr1).buyDomain(secondDomain, {
-        value: price * 2n,
+        value: price,
       });
       await domainRegistry.buyDomain(thirdDomain, {
-        value: price * 3n,
+        value: price,
       });
       await domainRegistry.buyDomain(fourthDomain, {
-        value: price * 4n,
+        value: price,
       });
 
       const filter = domainRegistry.filters.DomainRegistered(

@@ -7,107 +7,145 @@ import './interfaces/IDomainRegistry.sol';
 /// @author Vadym Sushkov
 /// @title Domain Registry
 contract DomainRegistry is IDomainRegistry {
-    /// Owner of the contract
     address public owner;
+    int256 public registrationPrice;
+    mapping(string => DomainMetadata) public domainList;
 
-    /// Mapping to store domain prices. Domain => Price
-    mapping(string => uint256) public domainPrices;
+    /// Sets structure to describe all necessary metadata
+    /// @dev Struct representing a booking of a domain name.
+    struct DomainMetadata {
+        address controller; // The address of the controller of the domain
+        uint256 registrationTimeStamp; // The timestamp when the domain was registered
+        bool isExists; // The marker indicating that domain was actually created
+    }
 
-    /// Mapping to store domain bookings. Domain => DomainNameBooking
-    mapping(string => DomainNameBooking) private domainBookings;
+    /// @dev Event emitted when a domain is registered.
+    /// @param domain The domain name.
+    /// @param controller The address of the controller of the domain.
+    /// @param registrationTimeStamp The timestamp when the domain was registered.
+    event DomainRegistered(
+        string domain,
+        address indexed controller,
+        uint256 indexed registrationTimeStamp
+    );
 
+    /// Check if requesting user is the owner
     /// @dev Modifier to restrict access to only the owner of the contract
     modifier onlyOwner() {
-        require(msg.sender == owner, 'Forbidden Resource');
+        if (msg.sender != owner) {
+            revert ForbiddenResource();
+        }
         _;
     }
 
-    /// @dev Modifier to check if a domain exists
+    /// Check if requesting domain is exists
+    /// @dev Modifier to check if a "domain" exists in "domainList"
     modifier existingDomain(string calldata domain) {
-        require(domainPrices[domain] != 0, 'Domain Does Not Exists');
+        if (!domainList[domain].isExists) {
+            revert DomainNotFound({incomingDomain: domain});
+        }
         _;
     }
 
-    /// @dev Constructor to set the owner of the contract
-    constructor() {
+    error DomainNotFound(string incomingDomain);
+    error PriceLessOrEqualsZero(int256 incomingValue);
+    error ForbiddenResource();
+    error ValueLessOrEqualsZero(uint256 incomingValue);
+    error DomainAlreadyTaken();
+    error IncorrectValueAmount(
+        uint256 incomingValue,
+        int256 expectingValue
+    );
+    error NothingToWithdraw();
+    error FailedToWithdraw(bytes data);
+    error DomainAlreadyExists();
+
+    /// Sets owner of the contract and price for domain registration
+    /// @dev Sets values "owner" of the contract and "registrationPrice"
+    /// @param initialPrice Sets default price for domains
+    constructor(int256 initialPrice) {
+        if (initialPrice <= 0) {
+            revert PriceLessOrEqualsZero({
+                incomingValue: initialPrice
+            });
+        }
         owner = msg.sender;
+        registrationPrice = initialPrice;
     }
 
-    /// @dev Function to get the price of a domain
-    /// @param domain The domain name
-    /// @return The price of the domain
-    function getDomainPrice(string calldata domain)
-        private
-        view
-        existingDomain(domain)
-        returns (uint256)
-    {
-        return domainPrices[domain];
-    }
-
-    /// @dev Function to register a domain
+    /// Buying a domain
+    /// @dev Checks if amount value is correct and "domain" is available and sets data to "domainList"
     /// @param domain The domain
-    function registerDomain(string calldata domain)
-        private
+    function buyDomain(string calldata domain)
+        external
+        payable
         existingDomain(domain)
     {
-        require(
-            domainBookings[domain].controller == address(0),
-            'Domain Already Taken'
-        );
+        if (msg.value <= 0) {
+            revert ValueLessOrEqualsZero({incomingValue: msg.value});
+        }
 
-        domainBookings[domain] = DomainNameBooking(
+        if (domainList[domain].controller != address(0)) {
+            revert DomainAlreadyTaken();
+        }
+
+        if (int256(msg.value) != registrationPrice) {
+            revert IncorrectValueAmount({
+                incomingValue: msg.value,
+                expectingValue: registrationPrice
+            });
+        }
+
+        domainList[domain] = DomainMetadata(
             msg.sender,
-            block.timestamp
+            block.timestamp,
+            true
         );
 
         emit DomainRegistered(domain, msg.sender, block.timestamp);
     }
 
-    /// @dev Function to buy a domain
-    /// @param domain The domain
-    function buyDomain(string calldata domain) external payable {
-        require(
-            msg.value == getDomainPrice(domain),
-            'Incorrect Value Amount'
+    /// Add new domain
+    /// @dev Checks if "domain" is not existing and sets record to "domainList"
+    /// @param domain The domain name
+    function addNewDomain(string calldata domain) external onlyOwner {
+        if (domainList[domain].isExists) {
+            revert DomainAlreadyExists();
+        }
+
+        domainList[domain] = DomainMetadata(
+            address(0),
+            uint256(0),
+            true
         );
-
-        registerDomain(domain);
     }
 
-    /// @dev Function to add a new domain with its price
-    /// @param domain The domain name
-    /// @param price The price of the domain
-    function addNewDomain(string calldata domain, uint256 price)
-        external
-        onlyOwner
-    {
-        require(domainPrices[domain] == 0, 'Domain Already Exists');
-
-        domainPrices[domain] = price;
-    }
-
-    /// @dev Function to change the price of a domain
-    /// @param domain The domain name
+    /// Change price for domain registration
+    /// @dev Sets "newPrice" to "registrationPrice"
     /// @param newPrice The new price of the domain
-    function changePrice(string calldata domain, uint256 newPrice)
-        external
-        onlyOwner
-        existingDomain(domain)
-    {
-        domainPrices[domain] = newPrice;
+    function changePrice(int256 newPrice) external onlyOwner {
+        if (newPrice <= 0) {
+            revert PriceLessOrEqualsZero({incomingValue: newPrice});
+        }
+
+        registrationPrice = newPrice;
     }
 
-    /// @dev Function to withdraw funds from the contract
+    /// Withdraw money to the owner of the contract
+    /// @dev Checks if the contract balance is not empty and then makes withdraw to "owner"
     function withdraw() public onlyOwner {
         uint256 contractBalance = address(this).balance;
 
-        require(contractBalance != 0, 'Nothing To Withdraw');
+        if (contractBalance == 0) {
+            revert NothingToWithdraw();
+        }
 
-        (bool sent, ) = payable(owner).call{value: contractBalance}(
-            ''
-        );
+        (bool sent, bytes memory data) = payable(owner).call{
+            value: contractBalance
+        }('');
 
-        require(sent, 'Failed To Withdraw');
+        if (!sent) {
+            revert FailedToWithdraw({data: data});
+        }
     }
 }
