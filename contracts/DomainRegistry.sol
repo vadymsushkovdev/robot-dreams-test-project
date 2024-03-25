@@ -58,10 +58,6 @@ contract DomainRegistry is IDomainRegistry {
     /// @param incomingValue The value that caused the error.
     error PriceLessOrEqualsZero(int256 incomingValue);
 
-    /// @dev Error thrown when the provided value is less than or equal to zero.
-    /// @param incomingValue The value that caused the error.
-    error ValueLessOrEqualsZero(uint256 incomingValue);
-
     /// @dev Error thrown when attempting to register a domain that already exists.
     error DomainAlreadyTaken();
 
@@ -132,10 +128,6 @@ contract DomainRegistry is IDomainRegistry {
         payable
         existingDomain(domain)
     {
-        if (msg.value <= 0) {
-            revert ValueLessOrEqualsZero({incomingValue: msg.value});
-        }
-
         if (domainList[domain].controller != address(0)) {
             revert DomainAlreadyTaken();
         }
@@ -147,11 +139,8 @@ contract DomainRegistry is IDomainRegistry {
             });
         }
 
-        domainList[domain] = DomainMetadata(
-            msg.sender,
-            block.timestamp,
-            true
-        );
+        domainList[domain].controller = msg.sender;
+        domainList[domain].registrationTimeStamp = block.timestamp;
 
         emit DomainRegistered(domain, msg.sender, block.timestamp);
     }

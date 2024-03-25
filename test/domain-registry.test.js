@@ -30,7 +30,7 @@ describe('DomainRegistry', function () {
       const addNewDomainTx =
         await domainRegistry.addNewDomain(domain);
 
-      const domainList = await domainRegistry.getList(domain);
+      const domainList = await domainRegistry.domainList(domain);
 
       expect(domainList[0]).to.equal(
         '0x0000000000000000000000000000000000000000'
