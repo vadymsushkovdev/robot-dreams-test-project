@@ -7,17 +7,25 @@ import './interfaces/IDomainRegistry.sol';
 /// @author Vadym Sushkov
 /// @title Domain Registry
 contract DomainRegistry is IDomainRegistry {
-    address public owner;
-    int256 public registrationPrice;
-    mapping(string => DomainMetadata) public domainList;
-
-    /// Sets structure to describe all necessary metadata
-    /// @dev Struct representing a booking of a domain name.
+    /// Sets structure to describe all necessary domain metadata
+    /// @dev Struct representing metadata associated with a registered domain.
     struct DomainMetadata {
         address controller; // The address of the controller of the domain
         uint256 registrationTimeStamp; // The timestamp when the domain was registered
         bool isExists; // The marker indicating that domain was actually created
     }
+
+    /// Owner of the contract
+    /// @dev The owner of the contract who has administrative control.
+    address public owner;
+
+    /// Domain registration price
+    /// @dev The price set for domain registration.
+    int256 public registrationPrice;
+
+    /// Domain registry container
+    /// @dev Mapping to store domain metadata against their names.
+    mapping(string => DomainMetadata) public domainList;
 
     /// @dev Event emitted when a domain is registered.
     /// @param domain The domain name.
@@ -28,6 +36,52 @@ contract DomainRegistry is IDomainRegistry {
         address indexed controller,
         uint256 indexed registrationTimeStamp
     );
+
+    /// @dev Error thrown when a domain is not found in the domain list.
+    /// @param incomingDomain The domain that was attempted to be found.
+    error DomainNotFound(string incomingDomain);
+
+    /// @dev Error thrown when the provided price is less than or equal to zero.
+    /// @param incomingValue The value that caused the error.
+    error PriceLessOrEqualsZero(int256 incomingValue);
+
+    /// @dev Error thrown when the provided value is less than or equal to zero.
+    /// @param incomingValue The value that caused the error.
+    error ValueLessOrEqualsZero(uint256 incomingValue);
+
+    /// @dev Error thrown when attempting to register a domain that already exists.
+    error DomainAlreadyTaken();
+
+    /// @dev Error thrown when access to a restricted resource is forbidden.
+    error ForbiddenResource();
+
+    /// @dev Error thrown when the value provided is not equal to the expected value.
+    /// @param incomingValue The value provided.
+    /// @param expectingValue The expected value.
+    error IncorrectValueAmount(
+        uint256 incomingValue,
+        int256 expectingValue
+    );
+
+    /// @dev Error thrown when attempting to add a domain that already exists.
+    error DomainAlreadyExists();
+
+    /// @dev Error thrown when there is nothing to withdraw from the contract.
+    error NothingToWithdraw();
+
+    /// @dev Error thrown when the withdrawal operation fails.
+    /// @param data The error data.
+    error FailedToWithdraw(bytes data);
+
+    /// Sets owner of the contract and price for domain registration
+    /// @dev Sets values "owner" of the contract and "registrationPrice"
+    /// @param initialPrice Sets default price for domains
+    constructor(int256 initialPrice)
+        piceBiggerThanZero(initialPrice)
+    {
+        owner = msg.sender;
+        registrationPrice = initialPrice;
+    }
 
     /// Check if requesting user is the owner
     /// @dev Modifier to restrict access to only the owner of the contract
@@ -47,30 +101,13 @@ contract DomainRegistry is IDomainRegistry {
         _;
     }
 
-    error DomainNotFound(string incomingDomain);
-    error PriceLessOrEqualsZero(int256 incomingValue);
-    error ForbiddenResource();
-    error ValueLessOrEqualsZero(uint256 incomingValue);
-    error DomainAlreadyTaken();
-    error IncorrectValueAmount(
-        uint256 incomingValue,
-        int256 expectingValue
-    );
-    error NothingToWithdraw();
-    error FailedToWithdraw(bytes data);
-    error DomainAlreadyExists();
-
-    /// Sets owner of the contract and price for domain registration
-    /// @dev Sets values "owner" of the contract and "registrationPrice"
-    /// @param initialPrice Sets default price for domains
-    constructor(int256 initialPrice) {
-        if (initialPrice <= 0) {
-            revert PriceLessOrEqualsZero({
-                incomingValue: initialPrice
-            });
+    /// @dev Modifier to ensure that the provided price is greater than zero.
+    /// @param price The price value to check.
+    modifier piceBiggerThanZero(int256 price) {
+        if (price <= 0) {
+            revert PriceLessOrEqualsZero({incomingValue: price});
         }
-        owner = msg.sender;
-        registrationPrice = initialPrice;
+        _;
     }
 
     /// Buying a domain
@@ -123,11 +160,11 @@ contract DomainRegistry is IDomainRegistry {
     /// Change price for domain registration
     /// @dev Sets "newPrice" to "registrationPrice"
     /// @param newPrice The new price of the domain
-    function changePrice(int256 newPrice) external onlyOwner {
-        if (newPrice <= 0) {
-            revert PriceLessOrEqualsZero({incomingValue: newPrice});
-        }
-
+    function changePrice(int256 newPrice)
+        external
+        onlyOwner
+        piceBiggerThanZero(newPrice)
+    {
         registrationPrice = newPrice;
     }
 
