@@ -26,18 +26,17 @@ describe('DomainRegistry', function () {
   describe('addNewDomain', function () {
     it('Should add a new domain', async function () {
       const domain = 'com';
-      const expectingValues = [
-        '0x0000000000000000000000000000000000000000',
-        0n,
-        true,
-      ];
 
       const addNewDomainTx =
         await domainRegistry.addNewDomain(domain);
 
-      expect(await domainRegistry.domainList(domain)).to.eql(
-        expectingValues
-      );
+      const domainList = await domainRegistry.getList(domain);
+
+      expect(domainList[0]).to.equal(
+        '0x0000000000000000000000000000000000000000'
+      ); // registered address (empty)
+      expect(domainList[1]).to.equal(0n); // registered timestamp (empty)
+      expect(domainList[2]).to.equal(true); // existing domain flag
 
       expect(addNewDomainTx)
         .to.emit(domainRegistry, 'DomainAdded')
