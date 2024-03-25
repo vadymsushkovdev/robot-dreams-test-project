@@ -32,11 +32,16 @@ describe('DomainRegistry', function () {
         true,
       ];
 
-      await domainRegistry.addNewDomain(domain);
+      const addNewDomainTx =
+        await domainRegistry.addNewDomain(domain);
 
       expect(await domainRegistry.domainList(domain)).to.eql(
         expectingValues
       );
+
+      expect(addNewDomainTx)
+        .to.emit(domainRegistry, 'DomainAdded')
+        .withArgs(domain);
     });
 
     it('Should revert if domain already exists', async function () {
@@ -55,12 +60,9 @@ describe('DomainRegistry', function () {
     it('Should revert if called by non-owner', async function () {
       const domain = 'com';
 
-      await expect(
-        domainRegistry.connect(addr1).addNewDomain(domain)
-      ).to.be.revertedWithCustomError(
-        domainRegistry,
-        'ForbiddenResource'
-      );
+      await expect(domainRegistry.connect(addr1).addNewDomain(domain))
+        .to.be.revertedWithCustomError(domainRegistry, 'OnlyOwner')
+        .withArgs(addr1);
     });
   });
 
@@ -68,22 +70,24 @@ describe('DomainRegistry', function () {
     it('Should change the registration price', async function () {
       const newPrice = ethers.parseEther('0.2');
 
-      await domainRegistry.changePrice(newPrice);
+      const changePriceTx =
+        await domainRegistry.changePrice(newPrice);
 
       expect(await domainRegistry.registrationPrice()).to.equal(
         newPrice
       );
+
+      expect(changePriceTx)
+        .to.emit(domainRegistry, 'PriceChanged')
+        .withArgs(newPrice);
     });
 
     it('Should revert if called by non-owner', async function () {
       const price = ethers.parseEther('0.1');
 
-      await expect(
-        domainRegistry.connect(addr1).changePrice(price)
-      ).to.be.revertedWithCustomError(
-        domainRegistry,
-        'ForbiddenResource'
-      );
+      await expect(domainRegistry.connect(addr1).changePrice(price))
+        .to.be.revertedWithCustomError(domainRegistry, 'OnlyOwner')
+        .withArgs(addr1);
     });
   });
 
@@ -173,6 +177,9 @@ describe('DomainRegistry', function () {
 
       expect(initialContractBalance).to.equal(price);
 
+      const block = await ethers.provider.getBlock();
+      const blockTimestamp = block.timestamp;
+
       const withdrawTx = await domainRegistry.withdraw();
 
       const contractBalance = await ethers.provider.getBalance(
@@ -182,6 +189,10 @@ describe('DomainRegistry', function () {
       expect(contractBalance).to.equal(BigInt(0));
 
       expect(withdrawTx).to.changeEtherBalance(owner, price);
+
+      expect(withdrawTx)
+        .to.emit(domainRegistry, 'Withdrawal')
+        .withArgs(price, blockTimestamp);
     });
 
     it('Should revert if contract balance is zero', async function () {
@@ -194,12 +205,9 @@ describe('DomainRegistry', function () {
     });
 
     it('Should revert if called by non-owner', async function () {
-      await expect(
-        domainRegistry.connect(addr1).withdraw()
-      ).to.be.revertedWithCustomError(
-        domainRegistry,
-        'ForbiddenResource'
-      );
+      await expect(domainRegistry.connect(addr1).withdraw())
+        .to.be.revertedWithCustomError(domainRegistry, 'OnlyOwner')
+        .withArgs(addr1);
     });
   });
 

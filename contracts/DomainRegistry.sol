@@ -37,6 +37,19 @@ contract DomainRegistry is IDomainRegistry {
         uint256 indexed registrationTimeStamp
     );
 
+    /// @dev Event emitted when funds are withdrawn from the contract.
+    /// @param amount The amount of funds withdrawn.
+    /// @param timeStamp The timestamp when the withdrawal was made.
+    event Withdrawal(uint256 amount, uint256 indexed timeStamp);
+
+    /// @dev Event emitted when the price for domain registration is changed.
+    /// @param newPrice The new price of the domain registration.
+    event PriceChanged(int256 newPrice);
+
+    /// @dev Event emitted when a new domain is added.
+    /// @param domain The domain name.
+    event DomainAdded(string domain);
+
     /// @dev Error thrown when a domain is not found in the domain list.
     /// @param incomingDomain The domain that was attempted to be found.
     error DomainNotFound(string incomingDomain);
@@ -53,7 +66,8 @@ contract DomainRegistry is IDomainRegistry {
     error DomainAlreadyTaken();
 
     /// @dev Error thrown when access to a restricted resource is forbidden.
-    error ForbiddenResource();
+    /// @param nonOwner The address of the non-owner who called the owner function
+    error OnlyOwner(address nonOwner);
 
     /// @dev Error thrown when the value provided is not equal to the expected value.
     /// @param incomingValue The value provided.
@@ -77,7 +91,7 @@ contract DomainRegistry is IDomainRegistry {
     /// @dev Sets values "owner" of the contract and "registrationPrice"
     /// @param initialPrice Sets default price for domains
     constructor(int256 initialPrice)
-        piceBiggerThanZero(initialPrice)
+        priceBiggerThanZero(initialPrice)
     {
         owner = msg.sender;
         registrationPrice = initialPrice;
@@ -87,7 +101,7 @@ contract DomainRegistry is IDomainRegistry {
     /// @dev Modifier to restrict access to only the owner of the contract
     modifier onlyOwner() {
         if (msg.sender != owner) {
-            revert ForbiddenResource();
+            revert OnlyOwner(msg.sender);
         }
         _;
     }
@@ -103,7 +117,7 @@ contract DomainRegistry is IDomainRegistry {
 
     /// @dev Modifier to ensure that the provided price is greater than zero.
     /// @param price The price value to check.
-    modifier piceBiggerThanZero(int256 price) {
+    modifier priceBiggerThanZero(int256 price) {
         if (price <= 0) {
             revert PriceLessOrEqualsZero({incomingValue: price});
         }
@@ -150,11 +164,9 @@ contract DomainRegistry is IDomainRegistry {
             revert DomainAlreadyExists();
         }
 
-        domainList[domain] = DomainMetadata(
-            address(0),
-            uint256(0),
-            true
-        );
+        domainList[domain].isExists = true;
+
+        emit DomainAdded(domain);
     }
 
     /// Change price for domain registration
@@ -163,9 +175,11 @@ contract DomainRegistry is IDomainRegistry {
     function changePrice(int256 newPrice)
         external
         onlyOwner
-        piceBiggerThanZero(newPrice)
+        priceBiggerThanZero(newPrice)
     {
         registrationPrice = newPrice;
+
+        emit PriceChanged(newPrice);
     }
 
     /// Withdraw money to the owner of the contract
@@ -184,5 +198,7 @@ contract DomainRegistry is IDomainRegistry {
         if (!sent) {
             revert FailedToWithdraw({data: data});
         }
+
+        emit Withdrawal(contractBalance, block.timestamp);
     }
 }
