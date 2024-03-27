@@ -11,7 +11,7 @@ contract DomainRegistry is IDomainRegistry {
     /// @dev Struct representing metadata associated with a registered domain.
     struct DomainMetadata {
         address controller; // The address of the controller of the domain
-        uint256 registrationTimeStamp; // The timestamp when the domain was registered
+        uint64 registrationTimeStamp; // The timestamp when the domain was registered
         bool isExists; // The marker indicating that domain was actually created
     }
 
@@ -140,7 +140,7 @@ contract DomainRegistry is IDomainRegistry {
         }
 
         domainList[domain].controller = msg.sender;
-        domainList[domain].registrationTimeStamp = block.timestamp;
+        domainList[domain].registrationTimeStamp = uint64(block.timestamp);
 
         emit DomainRegistered(domain, msg.sender, block.timestamp);
     }
