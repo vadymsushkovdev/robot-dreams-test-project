@@ -83,16 +83,6 @@ contract DomainRegistry is IDomainRegistry {
     /// @param data The error data.
     error FailedToWithdraw(bytes data);
 
-    /// Sets owner of the contract and price for domain registration
-    /// @dev Sets values "owner" of the contract and "registrationPrice"
-    /// @param initialPrice Sets default price for domains
-    constructor(int256 initialPrice)
-        priceBiggerThanZero(initialPrice)
-    {
-        owner = msg.sender;
-        registrationPrice = initialPrice;
-    }
-
     /// Check if requesting user is the owner
     /// @dev Modifier to restrict access to only the owner of the contract
     modifier onlyOwner() {
@@ -118,6 +108,16 @@ contract DomainRegistry is IDomainRegistry {
             revert PriceLessOrEqualsZero({incomingValue: price});
         }
         _;
+    }
+
+    /// Sets owner of the contract and price for domain registration
+    /// @dev Sets values "owner" of the contract and "registrationPrice"
+    /// @param initialPrice Sets default price for domains
+    constructor(int256 initialPrice)
+        priceBiggerThanZero(initialPrice)
+    {
+        owner = msg.sender;
+        registrationPrice = initialPrice;
     }
 
     /// Buying a domain
