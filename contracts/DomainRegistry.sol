@@ -3,10 +3,16 @@
 pragma solidity ^0.8.24;
 
 import './interfaces/IDomainRegistry.sol';
+import '@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol';
+import '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
 
 /// @author Vadym Sushkov
 /// @title Domain Registry
-contract DomainRegistry is IDomainRegistry {
+contract DomainRegistry is
+    Initializable,
+    OwnableUpgradeable,
+    IDomainRegistry
+{
     /// Sets structure to describe all necessary domain metadata
     /// @dev Struct representing metadata associated with a registered domain.
     struct DomainMetadata {
@@ -15,9 +21,9 @@ contract DomainRegistry is IDomainRegistry {
         bool isExists; // The marker indicating that domain was actually created
     }
 
-    /// Owner of the contract
-    /// @dev The owner of the contract who has administrative control.
-    address public owner;
+    // /// Owner of the contract
+    // /// @dev The owner of the contract who has administrative control.
+    // address public owner;
 
     /// Domain registration price
     /// @dev The price set for domain registration.
@@ -61,10 +67,6 @@ contract DomainRegistry is IDomainRegistry {
     /// @dev Error thrown when attempting to register a domain that already exists.
     error DomainAlreadyTaken();
 
-    /// @dev Error thrown when access to a restricted resource is forbidden.
-    /// @param nonOwner The address of the non-owner who called the owner function
-    error OnlyOwner(address nonOwner);
-
     /// @dev Error thrown when the value provided is not equal to the expected value.
     /// @param incomingValue The value provided.
     /// @param expectingValue The expected value.
@@ -82,15 +84,6 @@ contract DomainRegistry is IDomainRegistry {
     /// @dev Error thrown when the withdrawal operation fails.
     /// @param data The error data.
     error FailedToWithdraw(bytes data);
-
-    /// Check if requesting user is the owner
-    /// @dev Modifier to restrict access to only the owner of the contract
-    modifier onlyOwner() {
-        if (msg.sender != owner) {
-            revert OnlyOwner(msg.sender);
-        }
-        _;
-    }
 
     /// Check if requesting domain is exists
     /// @dev Modifier to check if a "domain" exists in "domainList"
@@ -113,10 +106,12 @@ contract DomainRegistry is IDomainRegistry {
     /// Sets owner of the contract and price for domain registration
     /// @dev Sets values "owner" of the contract and "registrationPrice"
     /// @param initialPrice Sets default price for domains
-    constructor(int256 initialPrice)
+    function initialize(int256 initialPrice)
+        public
         priceBiggerThanZero(initialPrice)
+        initializer
     {
-        owner = msg.sender;
+        __Ownable_init(msg.sender);
         registrationPrice = initialPrice;
     }
 
@@ -140,7 +135,9 @@ contract DomainRegistry is IDomainRegistry {
         }
 
         domainList[domain].controller = msg.sender;
-        domainList[domain].registrationTimeStamp = uint64(block.timestamp);
+        domainList[domain].registrationTimeStamp = uint64(
+            block.timestamp
+        );
 
         emit DomainRegistered(domain, msg.sender, block.timestamp);
     }
@@ -180,7 +177,7 @@ contract DomainRegistry is IDomainRegistry {
             revert NothingToWithdraw();
         }
 
-        (bool sent, bytes memory data) = payable(owner).call{
+        (bool sent, bytes memory data) = payable(owner()).call{
             value: contractBalance
         }('');
 
