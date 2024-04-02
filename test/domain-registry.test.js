@@ -1,13 +1,17 @@
 const { expect } = require('chai');
 const { ethers } = require('hardhat');
+const {
+  takeSnapshot,
+} = require('@nomicfoundation/hardhat-network-helpers');
 
 describe('DomainRegistry', function () {
+  let snapshotA;
   let DomainRegistry;
   let domainRegistry;
   let owner;
   let addr1;
 
-  beforeEach(async function () {
+  before(async function () {
     [owner, addr1] = await ethers.getSigners();
     const price = ethers.parseEther('0.1');
 
@@ -15,53 +19,15 @@ describe('DomainRegistry', function () {
       await ethers.getContractFactory('DomainRegistry');
     domainRegistry = await DomainRegistry.deploy(price);
     await domainRegistry.waitForDeployment();
+
+    snapshotA = await takeSnapshot();
   });
+
+  afterEach(async () => await snapshotA.restore());
 
   describe('Deployment', function () {
     it('Should set the owner correctly', async function () {
       expect(await domainRegistry.owner()).to.equal(owner.address);
-    });
-  });
-
-  describe('addNewDomain', function () {
-    it('Should add a new domain', async function () {
-      const domain = 'com';
-
-      const addNewDomainTx =
-        await domainRegistry.addNewDomain(domain);
-
-      const domainList = await domainRegistry.domainList(domain);
-
-      expect(domainList[0]).to.equal(
-        '0x0000000000000000000000000000000000000000'
-      ); // registered address (empty)
-      expect(domainList[1]).to.equal(0n); // registered timestamp (empty)
-      expect(domainList[2]).to.equal(true); // existing domain flag
-
-      expect(addNewDomainTx)
-        .to.emit(domainRegistry, 'DomainAdded')
-        .withArgs(domain);
-    });
-
-    it('Should revert if domain already exists', async function () {
-      const domain = 'com';
-
-      await domainRegistry.addNewDomain(domain);
-
-      await expect(
-        domainRegistry.addNewDomain(domain)
-      ).to.be.revertedWithCustomError(
-        domainRegistry,
-        'DomainAlreadyExists'
-      );
-    });
-
-    it('Should revert if called by non-owner', async function () {
-      const domain = 'com';
-
-      await expect(domainRegistry.connect(addr1).addNewDomain(domain))
-        .to.be.revertedWithCustomError(domainRegistry, 'OnlyOwner')
-        .withArgs(addr1);
     });
   });
 
@@ -85,8 +51,8 @@ describe('DomainRegistry', function () {
       const price = ethers.parseEther('0.1');
 
       await expect(domainRegistry.connect(addr1).changePrice(price))
-        .to.be.revertedWithCustomError(domainRegistry, 'OnlyOwner')
-        .withArgs(addr1);
+        .to.be.revertedWithCustomError(domainRegistry, 'NotOwner')
+        .withArgs(addr1, owner);
     });
   });
 
@@ -94,8 +60,6 @@ describe('DomainRegistry', function () {
     it('Should buy a domain successfully', async function () {
       const domain = 'com';
       const price = ethers.parseEther('0.1');
-
-      await domainRegistry.addNewDomain(domain);
 
       const buyDomainTransaction = await domainRegistry.buyDomain(
         domain,
@@ -117,8 +81,6 @@ describe('DomainRegistry', function () {
     it('Should revert if domain already taken', async function () {
       const domain = 'com';
       const price = ethers.parseEther('0.1');
-
-      await domainRegistry.addNewDomain(domain);
       await domainRegistry.buyDomain(domain, { value: price });
 
       await expect(
@@ -135,8 +97,6 @@ describe('DomainRegistry', function () {
       const domain = 'com';
       const price = ethers.parseEther('0.1');
 
-      await domainRegistry.addNewDomain(domain);
-
       await expect(
         domainRegistry.buyDomain(domain, {
           value: price / BigInt(2),
@@ -146,18 +106,6 @@ describe('DomainRegistry', function () {
         'IncorrectValueAmount'
       );
     });
-
-    it('Should revert if domain does not exist', async function () {
-      const domain = 'com';
-      const price = ethers.parseEther('0.1');
-
-      await expect(
-        domainRegistry.buyDomain(domain, { value: price })
-      ).to.be.revertedWithCustomError(
-        domainRegistry,
-        'DomainNotFound'
-      );
-    });
   });
 
   describe('withdraw', function () {
@@ -165,7 +113,6 @@ describe('DomainRegistry', function () {
       const domain = 'com';
       const price = ethers.parseEther('0.1');
 
-      await domainRegistry.addNewDomain(domain);
       await domainRegistry.buyDomain(domain, {
         value: price,
       });
@@ -205,8 +152,8 @@ describe('DomainRegistry', function () {
 
     it('Should revert if called by non-owner', async function () {
       await expect(domainRegistry.connect(addr1).withdraw())
-        .to.be.revertedWithCustomError(domainRegistry, 'OnlyOwner')
-        .withArgs(addr1);
+        .to.be.revertedWithCustomError(domainRegistry, 'NotOwner')
+        .withArgs(addr1, owner);
     });
   });
 
@@ -219,11 +166,6 @@ describe('DomainRegistry', function () {
       const fourthDomain = 'io';
 
       const price = ethers.parseEther('0.1');
-
-      await domainRegistry.addNewDomain(firstDomain);
-      await domainRegistry.addNewDomain(secondDomain);
-      await domainRegistry.addNewDomain(thirdDomain);
-      await domainRegistry.addNewDomain(fourthDomain);
 
       await domainRegistry.buyDomain(firstDomain, { value: price });
       await domainRegistry.buyDomain(secondDomain, {
@@ -251,11 +193,6 @@ describe('DomainRegistry', function () {
 
       const price = ethers.parseEther('0.1');
 
-      await domainRegistry.addNewDomain(firstDomain);
-      await domainRegistry.addNewDomain(secondDomain);
-      await domainRegistry.addNewDomain(thirdDomain);
-      await domainRegistry.addNewDomain(fourthDomain);
-
       await domainRegistry.buyDomain(firstDomain, { value: price });
       await domainRegistry.buyDomain(secondDomain, {
         value: price,
@@ -272,32 +209,28 @@ describe('DomainRegistry', function () {
       const logs = await domainRegistry.queryFilter(filter);
 
       logs.sort(
-        (a, b) =>
-          Number(a.args.registrationTimeStamp) -
-          Number(b.args.registrationTimeStamp)
+        (a, b) => Number(a.blockNumber) - Number(b.blockNumber)
       );
 
       logs.forEach((currentLog, index) => {
         const nextLog = logs[index + 1];
 
         if (nextLog) {
-          expect(currentLog.args[2]).to.be.at.most(nextLog.args[2]); //arg[2] is registrationTimeStamp
+          expect(currentLog.args[1]).to.equal(nextLog.args[1]); //arg[1] is controller
+          expect(currentLog.blockNumber).to.be.at.most(
+            nextLog.blockNumber
+          );
         }
       });
     });
 
-    it('Should show list of registered domains sorted by registeredDate and filtered by controller', async function () {
+    it('Should show list of registered domains sorted by blockNumber and filtered by controller', async function () {
       const firstDomain = 'com';
       const secondDomain = 'net';
       const thirdDomain = 'org';
       const fourthDomain = 'io';
 
       const price = ethers.parseEther('0.1');
-
-      await domainRegistry.addNewDomain(firstDomain);
-      await domainRegistry.addNewDomain(secondDomain);
-      await domainRegistry.addNewDomain(thirdDomain);
-      await domainRegistry.addNewDomain(fourthDomain);
 
       await domainRegistry.buyDomain(firstDomain, { value: price });
       await domainRegistry.connect(addr1).buyDomain(secondDomain, {
@@ -318,9 +251,7 @@ describe('DomainRegistry', function () {
       const logs = await domainRegistry.queryFilter(filter);
 
       logs.sort(
-        (a, b) =>
-          Number(a.args.registrationTimeStamp) -
-          Number(b.args.registrationTimeStamp)
+        (a, b) => Number(a.blockNumber) - Number(b.blockNumber)
       );
 
       logs.forEach((currentLog, index) => {
@@ -328,7 +259,9 @@ describe('DomainRegistry', function () {
 
         if (nextLog) {
           expect(currentLog.args[1]).to.equal(nextLog.args[1]); //arg[1] is controller
-          expect(currentLog.args[2]).to.be.at.most(nextLog.args[2]); //arg[2] is registrationTimeStamp
+          expect(currentLog.blockNumber).to.be.at.most(
+            nextLog.blockNumber
+          );
         }
       });
     });
