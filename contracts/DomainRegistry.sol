@@ -60,12 +60,6 @@ contract DomainRegistry is
     error DomainAlreadyTaken();
 
     /**
-     * @dev Error thrown when access to a restricted resource is forbidden.
-     * @param nonOwner The address of the non-owner who called the owner function
-     */
-    error NotOwner(address nonOwner, address owner);
-
-    /**
      * @dev Error thrown when the value provided is not equal to the expected value.
      * @param incomingValue The value provided.
      * @param expectingValue The expected value.

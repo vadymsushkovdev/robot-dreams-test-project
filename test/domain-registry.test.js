@@ -1,5 +1,5 @@
 const { expect } = require('chai');
-const { ethers } = require('hardhat');
+const { ethers, upgrades } = require('hardhat');
 const {
   takeSnapshot,
 } = require('@nomicfoundation/hardhat-network-helpers');
@@ -17,7 +17,9 @@ describe('DomainRegistry', function () {
 
     DomainRegistry =
       await ethers.getContractFactory('DomainRegistry');
-    domainRegistry = await DomainRegistry.deploy(price);
+    domainRegistry = await upgrades.deployProxy(DomainRegistry, [
+      price,
+    ]);
     await domainRegistry.waitForDeployment();
 
     snapshotA = await takeSnapshot();
@@ -51,8 +53,11 @@ describe('DomainRegistry', function () {
       const price = ethers.parseEther('0.1');
 
       await expect(domainRegistry.connect(addr1).changePrice(price))
-        .to.be.revertedWithCustomError(domainRegistry, 'NotOwner')
-        .withArgs(addr1, owner);
+        .to.be.revertedWithCustomError(
+          domainRegistry,
+          'OwnableUnauthorizedAccount'
+        )
+        .withArgs(addr1);
     });
   });
 
@@ -152,8 +157,11 @@ describe('DomainRegistry', function () {
 
     it('Should revert if called by non-owner', async function () {
       await expect(domainRegistry.connect(addr1).withdraw())
-        .to.be.revertedWithCustomError(domainRegistry, 'NotOwner')
-        .withArgs(addr1, owner);
+        .to.be.revertedWithCustomError(
+          domainRegistry,
+          'OwnableUnauthorizedAccount'
+        )
+        .withArgs(addr1);
     });
   });
 
