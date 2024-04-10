@@ -23,16 +23,16 @@ contract DomainRegistry is
     uint256 public registrationPrice;
 
     /**
-     * @dev Tracks the balance frozen within the contract.
-     * @notice This balance represents funds that are not available for withdrawal by owner.
-     */
-    uint256 private frozenBalance;
-
-    /**
      * @dev Domain registry container
      * @notice Mapping to store domain metadata against their names.
      */
     mapping(string => address) public domainList;
+
+    /**
+     * @dev Tracks the balance frozen within the contract.
+     * @notice This balance represents funds that are not available for withdrawal by owner.
+     */
+    uint256 private frozenBalance;
 
     /**
      * @dev Tracks the funds owned by each domain owner.
