@@ -19,7 +19,24 @@ interface IDomainRegistry {
      */
     function buyDomain(string calldata domain) external payable;
 
-
     //@dev Withdraw money to the owner of the contract
     function withdraw() external;
+
+    /**
+     * @dev Allows buying a child domain under a parent domain.
+     * @param parentDomain The parent domain under which to register the child domain.
+     * @param childDomain The name of the child domain.
+     */
+    function buyChildDomain(
+        string calldata parentDomain,
+        string calldata childDomain
+    ) external payable;
+
+    /**
+     * @dev Allows domain owners to withdraw their funds from the contract.
+     * @notice This function allows domain owners to withdraw the funds deposited for their domains.
+     * @notice Only the domain owner can invoke this function.
+     * @notice If the domain owner has no funds deposited, the function reverts.
+     */
+    function withdrawDomain() external;
 }
