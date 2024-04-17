@@ -45,7 +45,7 @@ describe('DomainRegistry upgrade v1', async function () {
 
   it('Should contains the same registrationPrice', async function () {
     const registrationPriceV1 =
-      await domainRegistry.registrationPrice();
+      await domainRegistry.getDomainRegistrationPrice();
 
     const domainRegistryV2 =
       await ethers.getContractFactory('DomainRegistry');
@@ -55,7 +55,7 @@ describe('DomainRegistry upgrade v1', async function () {
     );
 
     const registrationPriceV2 =
-      await domainRegistryV2Contract.registrationPrice();
+      await domainRegistryV2Contract.getDomainRegistrationPrice();
 
     expect(registrationPriceV1).to.be.equal(registrationPriceV2);
   });
@@ -87,16 +87,16 @@ describe('DomainRegistry upgrade v1', async function () {
     );
 
     expect(
-      await domainRegistryV2Contract.domainList(firstDomain)
+      await domainRegistryV2Contract.getDomainOwner(firstDomain)
     ).to.be.equal(owner);
     expect(
-      await domainRegistryV2Contract.domainList(secondDomain)
+      await domainRegistryV2Contract.getDomainOwner(secondDomain)
     ).to.be.equal(owner);
     expect(
-      await domainRegistryV2Contract.domainList(thirdDomain)
+      await domainRegistryV2Contract.getDomainOwner(thirdDomain)
     ).to.be.equal(addr1);
     expect(
-      await domainRegistryV2Contract.domainList(fourthDomain)
+      await domainRegistryV2Contract.getDomainOwner(fourthDomain)
     ).to.be.equal(addr1);
   });
 });

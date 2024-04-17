@@ -18,13 +18,11 @@ contract DomainRegistry is
 {
     /// @custom:storage-location erc7201:domainRegistry.domain
     struct DomainStorage {
-
         /**
          * @dev Domain registration price
          * @notice The price set for domain registration.
          */
         uint256 registrationPrice;
-
         /**
          * @dev Domain registry container
          * @notice Mapping to store domain metadata against their names.
@@ -32,21 +30,27 @@ contract DomainRegistry is
         mapping(string => address) domainList;
     }
 
+    /// @custom:storage-location erc7201:domainRegistry.fund
+    struct FundStorage {
+        /**
+         * @dev Tracks the balance frozen within the contract.
+         * @notice This balance represents funds that are not available for withdrawal by owner.
+         */
+        uint256 frozenBalance;
+        /**
+         * @dev Tracks the funds owned by each domain owner.
+         * @notice This mapping holds the funds of each domain owner to withdraw.
+         */
+        mapping(address => uint256) domainOwnersFunds;
+    }
+
     // keccak256(abi.encode(uint256(keccak256("domainRegistry.domain")) - 1)) & ~bytes32(uint256(0xff));
     bytes32 private constant DOMAIN_STORAGE_LOCATION =
         0x34d79759018dd62b1c8d40a6535099f131828aa4665b939adf68c4556b516400;
 
-    /**
-     * @dev Tracks the balance frozen within the contract.
-     * @notice This balance represents funds that are not available for withdrawal by owner.
-     */
-    uint256 private frozenBalance;
-
-    /**
-     * @dev Tracks the funds owned by each domain owner.
-     * @notice This mapping holds the funds of each domain owner to withdraw.
-     */
-    mapping(address => uint256) private domainOwnersFunds;
+    // keccak256(abi.encode(uint256(keccak256("domainRegistry.fund")) - 1)) & ~bytes32(uint256(0xff));
+    bytes32 private constant FUND_STORAGE_LOCATION =
+        0x249f20ee916056548cfe0204d9ea4281f252680318bb5252f87aa5a31ec81e00;
 
     /**
      * @dev Separator used to concatenate domain names.
@@ -150,9 +154,22 @@ contract DomainRegistry is
         __Ownable_init(msg.sender);
     }
 
-    // @dev Return domain registration price
-    function getDomainRegistrationPrice() public view returns (uint256) {
+    // @dev Returns domain registration price
+    function getDomainRegistrationPrice()
+        public
+        view
+        returns (uint256)
+    {
         return _getDomainStorage().registrationPrice;
+    }
+
+    // @dev Return domain owner address
+    function getDomainOwner(string calldata domain)
+        public
+        view
+        returns (address)
+    {
+        return _getDomainStorage().domainList[domain];
     }
 
     /**
@@ -164,7 +181,9 @@ contract DomainRegistry is
         string calldata parentDomain,
         string calldata childDomain
     ) external payable incorrectValueAmount {
-        if (domainList[parentDomain] == address(0)) {
+        if (
+            _getDomainStorage().domainList[parentDomain] == address(0)
+        ) {
             revert ParentDomainNotFound(parentDomain);
         }
 
@@ -173,14 +192,16 @@ contract DomainRegistry is
             parentDomain
         );
 
-        if (domainList[domain] != address(0)) {
+        if (_getDomainStorage().domainList[domain] != address(0)) {
             revert DomainAlreadyTaken();
         }
 
-        domainList[domain] = msg.sender;
+        _getDomainStorage().domainList[domain] = msg.sender;
 
-        frozenBalance += msg.value;
-        domainOwnersFunds[domainList[parentDomain]] += msg.value;
+        _getFundStorage().frozenBalance += msg.value;
+        _getFundStorage().domainOwnersFunds[
+            _getDomainStorage().domainList[parentDomain]
+        ] += msg.value;
 
         emit DomainRegistered(domain, msg.sender);
     }
@@ -223,7 +244,7 @@ contract DomainRegistry is
      */
     function withdraw() public onlyOwner {
         uint256 contractBalance = address(this).balance -
-            frozenBalance;
+            _getFundStorage().frozenBalance;
 
         if (contractBalance == 0) {
             revert NothingToWithdraw(owner());
@@ -247,22 +268,26 @@ contract DomainRegistry is
      * @notice If the domain owner has no funds deposited, the function reverts.
      */
     function withdrawDomain() public {
-        if (domainOwnersFunds[msg.sender] == 0) {
+        if (_getFundStorage().domainOwnersFunds[msg.sender] == 0) {
             revert NothingToWithdraw(msg.sender);
         }
 
         (bool sent, bytes memory data) = payable(msg.sender).call{
-            value: domainOwnersFunds[msg.sender]
+            value: _getFundStorage().domainOwnersFunds[msg.sender]
         }('');
 
         if (!sent) {
             revert FailedToWithdraw(msg.sender, data);
         }
 
-        frozenBalance -= domainOwnersFunds[msg.sender];
-        domainOwnersFunds[msg.sender] = 0;
+        _getFundStorage().frozenBalance -= _getFundStorage()
+            .domainOwnersFunds[msg.sender];
+        _getFundStorage().domainOwnersFunds[msg.sender] = 0;
 
-        emit Withdrawal(msg.sender, domainOwnersFunds[msg.sender]);
+        emit Withdrawal(
+            msg.sender,
+            _getFundStorage().domainOwnersFunds[msg.sender]
+        );
     }
 
     /**
@@ -284,6 +309,10 @@ contract DomainRegistry is
         );
     }
 
+    /**
+     * @dev Returns domain storage
+     * @notice Domain storage contains domainList and registrationsPrice data
+     */
     function _getDomainStorage()
         private
         pure
@@ -291,6 +320,20 @@ contract DomainRegistry is
     {
         assembly {
             $.slot := DOMAIN_STORAGE_LOCATION
+        }
+    }
+
+    /**
+     * @dev Returns fund storage
+     * @notice Fund storage contains frozenBalance and domainOwnersFunds data
+     */
+    function _getFundStorage()
+        private
+        pure
+        returns (FundStorage storage $)
+    {
+        assembly {
+            $.slot := FUND_STORAGE_LOCATION
         }
     }
 }

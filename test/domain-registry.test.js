@@ -244,7 +244,7 @@ describe('DomainRegistry', function () {
         });
 
       expect(
-        await domainRegistry.domainList(expectedResult)
+        await domainRegistry.getDomainOwner(expectedResult)
       ).to.be.equal(owner);
 
       expect(buyChildDomainTransaction)
