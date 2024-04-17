@@ -171,6 +171,10 @@ contract DomainRegistry is
         emit Withdrawal(contractBalance);
     }
 
+    /**
+     * @dev Returns domain storage
+     * @notice Domain storage contains domainList and registrationsPrice data
+     */
     function _getDomainStorage()
         private
         pure
