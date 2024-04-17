@@ -16,17 +16,25 @@ contract DomainRegistry is
     IDomainRegistry,
     OwnableUpgradeable
 {
-    /**
-     * @dev Domain registration price
-     * @notice The price set for domain registration.
-     */
-    uint256 public registrationPrice;
+    /// @custom:storage-location erc7201:domainRegistry.domain
+    struct DomainStorage {
 
-    /**
-     * @dev Domain registry container
-     * @notice Mapping to store domain metadata against their names.
-     */
-    mapping(string => address) public domainList;
+        /**
+         * @dev Domain registration price
+         * @notice The price set for domain registration.
+         */
+        uint256 registrationPrice;
+
+        /**
+         * @dev Domain registry container
+         * @notice Mapping to store domain metadata against their names.
+         */
+        mapping(string => address) domainList;
+    }
+
+    // keccak256(abi.encode(uint256(keccak256("domainRegistry.domain")) - 1)) & ~bytes32(uint256(0xff));
+    bytes32 private constant DOMAIN_STORAGE_LOCATION =
+        0x34d79759018dd62b1c8d40a6535099f131828aa4665b939adf68c4556b516400;
 
     /**
      * @dev Tracks the balance frozen within the contract.
@@ -112,7 +120,10 @@ contract DomainRegistry is
      */
     modifier priceBiggerThanZero(uint256 price) {
         if (price == 0) {
-            revert PriceEqualsZero(price, registrationPrice);
+            revert PriceEqualsZero(
+                price,
+                _getDomainStorage().registrationPrice
+            );
         }
         _;
     }
@@ -121,10 +132,10 @@ contract DomainRegistry is
      * @dev Modifier to ensure that the value sent is equal to the registration price.
      */
     modifier incorrectValueAmount() {
-        if (msg.value != registrationPrice) {
+        if (msg.value != _getDomainStorage().registrationPrice) {
             revert IncorrectValueAmount({
                 incomingValue: msg.value,
-                expectingValue: registrationPrice
+                expectingValue: _getDomainStorage().registrationPrice
             });
         }
         _;
@@ -135,8 +146,13 @@ contract DomainRegistry is
      * @param initialPrice Sets default price for domains
      */
     function initialize(uint256 initialPrice) public initializer {
-        registrationPrice = initialPrice;
+        _getDomainStorage().registrationPrice = initialPrice;
         __Ownable_init(msg.sender);
+    }
+
+    // @dev Return domain registration price
+    function getDomainRegistrationPrice() public view returns (uint256) {
+        return _getDomainStorage().registrationPrice;
     }
 
     /**
@@ -178,11 +194,11 @@ contract DomainRegistry is
         payable
         incorrectValueAmount
     {
-        if (domainList[domain] != address(0)) {
+        if (_getDomainStorage().domainList[domain] != address(0)) {
             revert DomainAlreadyTaken();
         }
 
-        domainList[domain] = msg.sender;
+        _getDomainStorage().domainList[domain] = msg.sender;
 
         emit DomainRegistered(domain, msg.sender);
     }
@@ -196,7 +212,7 @@ contract DomainRegistry is
         onlyOwner
         priceBiggerThanZero(newPrice)
     {
-        registrationPrice = newPrice;
+        _getDomainStorage().registrationPrice = newPrice;
 
         emit PriceChanged(newPrice);
     }
@@ -266,5 +282,15 @@ contract DomainRegistry is
                 parentDomain
             )
         );
+    }
+
+    function _getDomainStorage()
+        private
+        pure
+        returns (DomainStorage storage $)
+    {
+        assembly {
+            $.slot := DOMAIN_STORAGE_LOCATION
+        }
     }
 }
