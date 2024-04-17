@@ -40,9 +40,9 @@ describe('DomainRegistry', function () {
       const changePriceTx =
         await domainRegistry.changePrice(newPrice);
 
-      expect(await domainRegistry.registrationPrice()).to.equal(
-        newPrice
-      );
+      expect(
+        await domainRegistry.getDomainRegistrationPrice()
+      ).to.equal(newPrice);
 
       expect(changePriceTx)
         .to.emit(domainRegistry, 'PriceChanged')
