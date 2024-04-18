@@ -101,15 +101,18 @@ describe('DomainRegistry', function () {
     it('Should revert if value sent is incorrect', async function () {
       const domain = 'com';
       const price = ethers.parseEther('0.1');
+      const wrongValue = price / BigInt(2);
 
       await expect(
         domainRegistry.buyDomain(domain, {
-          value: price / BigInt(2),
+          value: wrongValue,
         })
-      ).to.be.revertedWithCustomError(
-        domainRegistry,
-        'IncorrectValueAmount'
-      );
+      )
+        .to.be.revertedWithCustomError(
+          domainRegistry,
+          'IncorrectValueAmount'
+        )
+        .withArgs(wrongValue, price);
     });
   });
 
@@ -147,12 +150,12 @@ describe('DomainRegistry', function () {
     });
 
     it('Should revert if contract balance is zero', async function () {
-      await expect(
-        domainRegistry.connect(owner).withdraw()
-      ).to.be.revertedWithCustomError(
-        domainRegistry,
-        'NothingToWithdraw'
-      );
+      await expect(domainRegistry.connect(owner).withdraw())
+        .to.be.revertedWithCustomError(
+          domainRegistry,
+          'NothingToWithdraw'
+        )
+        .withArgs(owner);
     });
 
     it('Should revert if called by non-owner', async function () {
@@ -162,6 +165,151 @@ describe('DomainRegistry', function () {
           'OwnableUnauthorizedAccount'
         )
         .withArgs(addr1);
+    });
+  });
+
+  describe('withdrawDomain', function () {
+    it('Should withdraw funds from the contract to domain owner', async function () {
+      const domain = 'com';
+      const childDomain = 'test';
+      const price = ethers.parseEther('0.1');
+
+      await domainRegistry.buyDomain(domain, {
+        value: price,
+      });
+
+      await domainRegistry
+        .connect(addr1)
+        .buyChildDomain(domain, childDomain, {
+          value: price,
+        });
+
+      const initialContractBalance = await ethers.provider.getBalance(
+        domainRegistry.getAddress()
+      );
+
+      expect(initialContractBalance).to.equal(price * BigInt(2));
+
+      const block = await ethers.provider.getBlock();
+      const blockTimestamp = block.timestamp;
+
+      const withdrawDomainTx = await domainRegistry.withdrawDomain();
+
+      const contractBalance = await ethers.provider.getBalance(
+        domainRegistry.getAddress()
+      );
+
+      expect(contractBalance).to.equal(price);
+
+      expect(withdrawDomainTx).to.changeEtherBalance(owner, price);
+
+      expect(withdrawDomainTx)
+        .to.emit(domainRegistry, 'Withdrawal')
+        .withArgs(price, blockTimestamp);
+
+      const finalContractBalance = await ethers.provider.getBalance(
+        domainRegistry.getAddress()
+      );
+
+      expect(finalContractBalance).to.equal(price);
+    });
+
+    it('Should revert if domain owner funds balance is zero', async function () {
+      await expect(domainRegistry.connect(addr1).withdrawDomain())
+        .to.be.revertedWithCustomError(
+          domainRegistry,
+          'NothingToWithdraw'
+        )
+        .withArgs(addr1);
+    });
+  });
+
+  describe('buyChildDomain', async function () {
+    it('Should buy child domain', async function () {
+      const domain = 'com';
+      const childDomain = 'test';
+      const expectedResult = 'test.com';
+      const price = ethers.parseEther('0.1');
+
+      await domainRegistry.buyDomain(domain, {
+        value: price,
+      });
+
+      const block = await ethers.provider.getBlock();
+      const blockTimestamp = block.timestamp;
+
+      const buyChildDomainTransaction =
+        await domainRegistry.buyChildDomain(domain, childDomain, {
+          value: price,
+        });
+
+      expect(
+        await domainRegistry.getDomainOwner(expectedResult)
+      ).to.be.equal(owner);
+
+      expect(buyChildDomainTransaction)
+        .to.emit(domainRegistry, 'DomainRegistered')
+        .withArgs(domain, owner, blockTimestamp);
+    });
+
+    it('Should revert if child domain already taken', async function () {
+      const domain = 'com';
+      const childDomain = 'test';
+      const price = ethers.parseEther('0.1');
+
+      await domainRegistry.buyDomain(domain, { value: price });
+      await domainRegistry.buyChildDomain(domain, childDomain, {
+        value: price,
+      });
+
+      await expect(
+        domainRegistry.buyChildDomain(domain, childDomain, {
+          value: price,
+        })
+      ).to.be.revertedWithCustomError(
+        domainRegistry,
+        'DomainAlreadyTaken'
+      );
+    });
+
+    it('Should revert if value sent is incorrect', async function () {
+      const domain = 'com';
+      const childDomain = 'test';
+      const price = ethers.parseEther('0.1');
+      const incorrectValue = price / BigInt(2);
+
+      await domainRegistry.buyDomain(domain, { value: price });
+
+      await expect(
+        domainRegistry.buyChildDomain(domain, childDomain, {
+          value: incorrectValue,
+        })
+      )
+        .to.be.revertedWithCustomError(
+          domainRegistry,
+          'IncorrectValueAmount'
+        )
+        .withArgs(incorrectValue, price);
+    });
+
+    it('Should revert if parent domain doesn`t exist', async function () {
+      const domain = 'com';
+      const childDomain = 'test';
+      const price = ethers.parseEther('0.1');
+      const wrongDomain = 'org';
+
+      await domainRegistry.buyDomain(domain, { value: price });
+
+      await expect(
+        domainRegistry.buyChildDomain(wrongDomain, childDomain, {
+          value: price,
+        })
+      )
+        .to.be.revertedWithCustomError(
+          domainRegistry,
+          'ParentDomainNotFound'
+        )
+        .withArgs(wrongDomain);
     });
   });
 

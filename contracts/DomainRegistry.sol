@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.24;
+pragma solidity 0.8.24;
 
 import './interfaces/IDomainRegistry.sol';
 import '@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol';
@@ -9,6 +9,7 @@ import '@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol';
 /**
  * @title Domain Registry
  * @author Vadym Sushkov
+ * @notice This contract allows registration and management of domains.
  */
 contract DomainRegistry is
     Initializable,
@@ -17,13 +18,11 @@ contract DomainRegistry is
 {
     /// @custom:storage-location erc7201:domainRegistry.domain
     struct DomainStorage {
-
         /**
          * @dev Domain registration price
          * @notice The price set for domain registration.
          */
         uint256 registrationPrice;
-
         /**
          * @dev Domain registry container
          * @notice Mapping to store domain metadata against their names.
@@ -31,9 +30,32 @@ contract DomainRegistry is
         mapping(string => address) domainList;
     }
 
+    /// @custom:storage-location erc7201:domainRegistry.fund
+    struct FundStorage {
+        /**
+         * @dev Tracks the balance frozen within the contract.
+         * @notice This balance represents funds that are not available for withdrawal by owner.
+         */
+        uint256 frozenBalance;
+        /**
+         * @dev Tracks the funds owned by each domain owner.
+         * @notice This mapping holds the funds of each domain owner to withdraw.
+         */
+        mapping(address => uint256) domainOwnersFunds;
+    }
+
     // keccak256(abi.encode(uint256(keccak256("domainRegistry.domain")) - 1)) & ~bytes32(uint256(0xff));
     bytes32 private constant DOMAIN_STORAGE_LOCATION =
         0x34d79759018dd62b1c8d40a6535099f131828aa4665b939adf68c4556b516400;
+
+    // keccak256(abi.encode(uint256(keccak256("domainRegistry.fund")) - 1)) & ~bytes32(uint256(0xff));
+    bytes32 private constant FUND_STORAGE_LOCATION =
+        0x249f20ee916056548cfe0204d9ea4281f252680318bb5252f87aa5a31ec81e00;
+
+    /**
+     * @dev Separator used to concatenate domain names.
+     */
+    string private constant domainSeparator = '.';
 
     /**
      * @dev Event emitted when a domain is registered.
@@ -46,7 +68,7 @@ contract DomainRegistry is
      * @dev Event emitted when funds are withdrawn from the contract.
      * @param amount The amount of funds withdrawn.
      */
-    event Withdrawal(uint256 amount);
+    event Withdrawal(address reciever, uint256 amount);
 
     /**
      * @dev Event emitted when the price for domain registration is changed.
@@ -77,14 +99,24 @@ contract DomainRegistry is
         uint256 expectingValue
     );
 
-    /// @dev Error thrown when there is nothing to withdraw from the contract.
-    error NothingToWithdraw();
+    /**
+     * @dev Error thrown when there is nothing to withdraw from the contract.
+     * @param requester The address of requester who request withdraw funds.
+     */
+    error NothingToWithdraw(address requester);
 
     /**
      * @dev Error thrown when the withdrawal operation fails.
      * @param data The error data.
      */
-    error FailedToWithdraw(bytes data);
+    error FailedToWithdraw(address reciever, bytes data);
+
+    /**
+     * @dev Error thrown when the parent domain is not found.
+     * @param incomingDomain The domain for which the parent domain is not found.
+     */
+
+    error ParentDomainNotFound(string incomingDomain);
 
     /**
      * @dev Modifier to ensure that the provided price is greater than zero.
@@ -101,6 +133,19 @@ contract DomainRegistry is
     }
 
     /**
+     * @dev Modifier to ensure that the value sent is equal to the registration price.
+     */
+    modifier incorrectValueAmount() {
+        if (msg.value != _getDomainStorage().registrationPrice) {
+            revert IncorrectValueAmount({
+                incomingValue: msg.value,
+                expectingValue: _getDomainStorage().registrationPrice
+            });
+        }
+        _;
+    }
+
+    /**
      * @dev Sets owner of the contract and price for domain registration
      * @param initialPrice Sets default price for domains
      */
@@ -109,25 +154,69 @@ contract DomainRegistry is
         __Ownable_init(msg.sender);
     }
 
-    // @dev Return domain registration price
-    function getDomainRegistrationPrice() public view returns (uint256) {
+    // @dev Returns domain registration price
+    function getDomainRegistrationPrice()
+        public
+        view
+        returns (uint256)
+    {
         return _getDomainStorage().registrationPrice;
+    }
+
+    // @dev Return domain owner address
+    function getDomainOwner(string calldata domain)
+        public
+        view
+        returns (address)
+    {
+        return _getDomainStorage().domainList[domain];
+    }
+
+    /**
+     * @dev Allows buying a child domain under a parent domain.
+     * @param parentDomain The parent domain under which to register the child domain.
+     * @param childDomain The name of the child domain.
+     */
+    function buyChildDomain(
+        string calldata parentDomain,
+        string calldata childDomain
+    ) external payable incorrectValueAmount {
+        if (
+            _getDomainStorage().domainList[parentDomain] == address(0)
+        ) {
+            revert ParentDomainNotFound(parentDomain);
+        }
+
+        string memory domain = createFullDomain(
+            childDomain,
+            parentDomain
+        );
+
+        if (_getDomainStorage().domainList[domain] != address(0)) {
+            revert DomainAlreadyTaken();
+        }
+
+        _getDomainStorage().domainList[domain] = msg.sender;
+
+        _getFundStorage().frozenBalance += msg.value;
+        _getFundStorage().domainOwnersFunds[
+            _getDomainStorage().domainList[parentDomain]
+        ] += msg.value;
+
+        emit DomainRegistered(domain, msg.sender);
     }
 
     /**
      * @dev Buying a domain
      * @param domain The domain
      */
-    function buyDomain(string calldata domain) external payable {
+    function buyDomain(string calldata domain)
+        external
+        payable
+        incorrectValueAmount
+    {
         if (_getDomainStorage().domainList[domain] != address(0)) {
             revert DomainAlreadyTaken();
-        }
-
-        if (msg.value != _getDomainStorage().registrationPrice) {
-            revert IncorrectValueAmount({
-                incomingValue: msg.value,
-                expectingValue: _getDomainStorage().registrationPrice
-            });
         }
 
         _getDomainStorage().domainList[domain] = msg.sender;
@@ -154,10 +243,11 @@ contract DomainRegistry is
      * @notice Checks if the contract balance is not empty and then makes withdraw to "owner"
      */
     function withdraw() public onlyOwner {
-        uint256 contractBalance = address(this).balance;
+        uint256 contractBalance = address(this).balance -
+            _getFundStorage().frozenBalance;
 
         if (contractBalance == 0) {
-            revert NothingToWithdraw();
+            revert NothingToWithdraw(owner());
         }
 
         (bool sent, bytes memory data) = payable(owner()).call{
@@ -165,10 +255,58 @@ contract DomainRegistry is
         }('');
 
         if (!sent) {
-            revert FailedToWithdraw({data: data});
+            revert FailedToWithdraw(owner(), data);
         }
 
-        emit Withdrawal(contractBalance);
+        emit Withdrawal(owner(), contractBalance);
+    }
+
+    /**
+     * @dev Allows domain owners to withdraw their funds from the contract.
+     * @notice This function allows domain owners to withdraw the funds deposited for their domains.
+     * @notice Only the domain owner can invoke this function.
+     * @notice If the domain owner has no funds deposited, the function reverts.
+     */
+    function withdrawDomain() public {
+        if (_getFundStorage().domainOwnersFunds[msg.sender] == 0) {
+            revert NothingToWithdraw(msg.sender);
+        }
+
+        (bool sent, bytes memory data) = payable(msg.sender).call{
+            value: _getFundStorage().domainOwnersFunds[msg.sender]
+        }('');
+
+        if (!sent) {
+            revert FailedToWithdraw(msg.sender, data);
+        }
+
+        _getFundStorage().frozenBalance -= _getFundStorage()
+            .domainOwnersFunds[msg.sender];
+        _getFundStorage().domainOwnersFunds[msg.sender] = 0;
+
+        emit Withdrawal(
+            msg.sender,
+            _getFundStorage().domainOwnersFunds[msg.sender]
+        );
+    }
+
+    /**
+     * @dev Concatenates child and parent domain names.
+     * @param childDomain The name of the child domain.
+     * @param parentDomain The name of the parent domain.
+     * @return domain The concatenated domain name.
+     */
+    function createFullDomain(
+        string calldata childDomain,
+        string calldata parentDomain
+    ) private pure returns (string memory domain) {
+        domain = string(
+            abi.encodePacked(
+                childDomain,
+                domainSeparator,
+                parentDomain
+            )
+        );
     }
 
     /**
@@ -182,6 +320,20 @@ contract DomainRegistry is
     {
         assembly {
             $.slot := DOMAIN_STORAGE_LOCATION
+        }
+    }
+
+    /**
+     * @dev Returns fund storage
+     * @notice Fund storage contains frozenBalance and domainOwnersFunds data
+     */
+    function _getFundStorage()
+        private
+        pure
+        returns (FundStorage storage $)
+    {
+        assembly {
+            $.slot := FUND_STORAGE_LOCATION
         }
     }
 }
