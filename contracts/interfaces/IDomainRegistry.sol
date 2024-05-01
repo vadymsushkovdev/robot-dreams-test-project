@@ -14,29 +14,54 @@ interface IDomainRegistry {
     function changePrice(uint256 newPrice) external;
 
     /**
-     * @dev Buying a domain
+     * @dev Buying a domain via eth
      * @param domain The domain
      */
-    function buyDomain(string calldata domain) external payable;
+    function buyDomainViaEth(string calldata domain) external payable;
 
-    //@dev Withdraw money to the owner of the contract
-    function withdraw() external;
+    /**
+     * @dev Buying a domain via usdc
+     * @param domain The domain
+     */
+    function buyDomainViaUsdc(string calldata domain)
+        external
+        payable;
+
+    /**
+     * @dev Withdraw usdc to the owner of the contract
+     * @notice Checks if the contract balance is not empty and then makes withdraw to "owner"
+     */
+    function withdrawUsdc() external;
+
+    /**
+     * @dev Withdraw eth to the owner of the contract
+     * @notice Checks if the contract balance is not empty and then makes withdraw to "owner"
+     */
+    function withdrawEth() external;
 
     /**
      * @dev Allows buying a child domain under a parent domain.
      * @param parentDomain The parent domain under which to register the child domain.
      * @param childDomain The name of the child domain.
      */
-    function buyChildDomain(
+    function buyChildDomainViaEth(
         string calldata parentDomain,
         string calldata childDomain
     ) external payable;
 
     /**
-     * @dev Allows domain owners to withdraw their funds from the contract.
-     * @notice This function allows domain owners to withdraw the funds deposited for their domains.
+     * @dev Allows domain owners to withdraw their eth funds from the contract.
+     * @notice This function allows domain owners to withdraw the eth funds deposited for their domains.
      * @notice Only the domain owner can invoke this function.
      * @notice If the domain owner has no funds deposited, the function reverts.
      */
-    function withdrawDomain() external;
+    function withdrawDomainEth() external;
+
+    /**
+     * @dev Allows domain owners to withdraw their usdc funds from the contract.
+     * @notice This function allows domain owners to withdraw the usdc funds deposited for their domains.
+     * @notice Only the domain owner can invoke this function.
+     * @notice If the domain owner has no funds deposited, the function reverts.
+     */
+    function withdrawDomainUsdc() external;
 }

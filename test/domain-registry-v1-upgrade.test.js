@@ -55,8 +55,7 @@ describe('DomainRegistry upgrade v1', async function () {
     );
 
     const registrationPriceV2 =
-      await domainRegistryV2Contract.getDomainRegistrationPrice();
-
+      await domainRegistryV2Contract.getRegistrationPriceInUsdc();
     expect(registrationPriceV1).to.be.equal(registrationPriceV2);
   });
 

@@ -1,0 +1,696 @@
+{
+	"id": "778b8bb0870e86aa792b9a964cadc5ed",
+	"_format": "hh-sol-build-info-1",
+	"solcVersion": "0.8.24",
+	"solcLongVersion": "0.8.24+commit.e11b9ed9",
+	"input": {
+		"language": "Solidity",
+		"sources": {
+			"contracts/interfaces/IDomainRegistry.sol": {
+				"content": "// SPDX-License-Identifier: MIT\n\npragma solidity ^0.8.24;\n\n/**\n * @title Domain Registry Interface\n * @notice This interface defines the methods required for interacting with a domain registry contract.\n */\ninterface IDomainRegistry {\n    /**\n     * @dev Change price for domain registration\n     * @param newPrice The new price of the domain\n     */\n    function changePrice(uint256 newPrice) external;\n\n    /**\n     * @dev Buying a domain via eth\n     * @param domain The domain\n     */\n    function buyDomainViaEth(string calldata domain) external payable;\n\n    /**\n     * @dev Buying a domain via usdc\n     * @param domain The domain\n     */\n    function buyDomainViaUsdc(string calldata domain)\n        external\n        payable;\n\n    /**\n     * @dev Withdraw usdc to the owner of the contract\n     * @notice Checks if the contract balance is not empty and then makes withdraw to \"owner\"\n     */\n    function withdrawUsdc() external;\n\n    /**\n     * @dev Withdraw eth to the owner of the contract\n     * @notice Checks if the contract balance is not empty and then makes withdraw to \"owner\"\n     */\n    function withdrawEth() external;\n\n    /**\n     * @dev Allows buying a child domain under a parent domain.\n     * @param parentDomain The parent domain under which to register the child domain.\n     * @param childDomain The name of the child domain.\n     */\n    function buyChildDomainViaEth(\n        string calldata parentDomain,\n        string calldata childDomain\n    ) external payable;\n\n    /**\n     * @dev Allows domain owners to withdraw their eth funds from the contract.\n     * @notice This function allows domain owners to withdraw the eth funds deposited for their domains.\n     * @notice Only the domain owner can invoke this function.\n     * @notice If the domain owner has no funds deposited, the function reverts.\n     */\n    function withdrawDomainEth() external;\n\n    /**\n     * @dev Allows domain owners to withdraw their usdc funds from the contract.\n     * @notice This function allows domain owners to withdraw the usdc funds deposited for their domains.\n     * @notice Only the domain owner can invoke this function.\n     * @notice If the domain owner has no funds deposited, the function reverts.\n     */\n    function withdrawDomainUsdc() external;\n}\n"
+			}
+		},
+		"settings": {
+			"optimizer": {
+				"enabled": false,
+				"runs": 200
+			},
+			"outputSelection": {
+				"*": {
+					"": [
+						"ast"
+					],
+					"*": [
+						"abi",
+						"metadata",
+						"devdoc",
+						"userdoc",
+						"storageLayout",
+						"evm.legacyAssembly",
+						"evm.bytecode",
+						"evm.deployedBytecode",
+						"evm.methodIdentifiers",
+						"evm.gasEstimates",
+						"evm.assembly"
+					]
+				}
+			},
+			"remappings": []
+		}
+	},
+	"output": {
+		"contracts": {
+			"contracts/interfaces/IDomainRegistry.sol": {
+				"IDomainRegistry": {
+					"abi": [
+						{
+							"inputs": [
+								{
+									"internalType": "string",
+									"name": "parentDomain",
+									"type": "string"
+								},
+								{
+									"internalType": "string",
+									"name": "childDomain",
+									"type": "string"
+								}
+							],
+							"name": "buyChildDomainViaEth",
+							"outputs": [],
+							"stateMutability": "payable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "string",
+									"name": "domain",
+									"type": "string"
+								}
+							],
+							"name": "buyDomainViaEth",
+							"outputs": [],
+							"stateMutability": "payable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "string",
+									"name": "domain",
+									"type": "string"
+								}
+							],
+							"name": "buyDomainViaUsdc",
+							"outputs": [],
+							"stateMutability": "payable",
+							"type": "function"
+						},
+						{
+							"inputs": [
+								{
+									"internalType": "uint256",
+									"name": "newPrice",
+									"type": "uint256"
+								}
+							],
+							"name": "changePrice",
+							"outputs": [],
+							"stateMutability": "nonpayable",
+							"type": "function"
+						},
+						{
+							"inputs": [],
+							"name": "withdrawDomainEth",
+							"outputs": [],
+							"stateMutability": "nonpayable",
+							"type": "function"
+						},
+						{
+							"inputs": [],
+							"name": "withdrawDomainUsdc",
+							"outputs": [],
+							"stateMutability": "nonpayable",
+							"type": "function"
+						},
+						{
+							"inputs": [],
+							"name": "withdrawEth",
+							"outputs": [],
+							"stateMutability": "nonpayable",
+							"type": "function"
+						},
+						{
+							"inputs": [],
+							"name": "withdrawUsdc",
+							"outputs": [],
+							"stateMutability": "nonpayable",
+							"type": "function"
+						}
+					],
+					"devdoc": {
+						"kind": "dev",
+						"methods": {
+							"buyChildDomainViaEth(string,string)": {
+								"details": "Allows buying a child domain under a parent domain.",
+								"params": {
+									"childDomain": "The name of the child domain.",
+									"parentDomain": "The parent domain under which to register the child domain."
+								}
+							},
+							"buyDomainViaEth(string)": {
+								"details": "Buying a domain via eth",
+								"params": {
+									"domain": "The domain"
+								}
+							},
+							"buyDomainViaUsdc(string)": {
+								"details": "Buying a domain via usdc",
+								"params": {
+									"domain": "The domain"
+								}
+							},
+							"changePrice(uint256)": {
+								"details": "Change price for domain registration",
+								"params": {
+									"newPrice": "The new price of the domain"
+								}
+							},
+							"withdrawDomainEth()": {
+								"details": "Allows domain owners to withdraw their eth funds from the contract."
+							},
+							"withdrawDomainUsdc()": {
+								"details": "Allows domain owners to withdraw their usdc funds from the contract."
+							},
+							"withdrawEth()": {
+								"details": "Withdraw eth to the owner of the contract"
+							},
+							"withdrawUsdc()": {
+								"details": "Withdraw usdc to the owner of the contract"
+							}
+						},
+						"title": "Domain Registry Interface",
+						"version": 1
+					},
+					"evm": {
+						"assembly": "",
+						"bytecode": {
+							"functionDebugData": {},
+							"generatedSources": [],
+							"linkReferences": {},
+							"object": "",
+							"opcodes": "",
+							"sourceMap": ""
+						},
+						"deployedBytecode": {
+							"functionDebugData": {},
+							"generatedSources": [],
+							"immutableReferences": {},
+							"linkReferences": {},
+							"object": "",
+							"opcodes": "",
+							"sourceMap": ""
+						},
+						"gasEstimates": null,
+						"legacyAssembly": null,
+						"methodIdentifiers": {
+							"buyChildDomainViaEth(string,string)": "37ee4b47",
+							"buyDomainViaEth(string)": "1b0e17a3",
+							"buyDomainViaUsdc(string)": "fbd43caa",
+							"changePrice(uint256)": "a2b40d19",
+							"withdrawDomainEth()": "559aae74",
+							"withdrawDomainUsdc()": "82702ff4",
+							"withdrawEth()": "a0ef91df",
+							"withdrawUsdc()": "fee84d4e"
+						}
+					},
+					"metadata": "{\"compiler\":{\"version\":\"0.8.24+commit.e11b9ed9\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"string\",\"name\":\"parentDomain\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"childDomain\",\"type\":\"string\"}],\"name\":\"buyChildDomainViaEth\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"domain\",\"type\":\"string\"}],\"name\":\"buyDomainViaEth\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"domain\",\"type\":\"string\"}],\"name\":\"buyDomainViaUsdc\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"newPrice\",\"type\":\"uint256\"}],\"name\":\"changePrice\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdrawDomainEth\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdrawDomainUsdc\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdrawEth\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"withdrawUsdc\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}],\"devdoc\":{\"kind\":\"dev\",\"methods\":{\"buyChildDomainViaEth(string,string)\":{\"details\":\"Allows buying a child domain under a parent domain.\",\"params\":{\"childDomain\":\"The name of the child domain.\",\"parentDomain\":\"The parent domain under which to register the child domain.\"}},\"buyDomainViaEth(string)\":{\"details\":\"Buying a domain via eth\",\"params\":{\"domain\":\"The domain\"}},\"buyDomainViaUsdc(string)\":{\"details\":\"Buying a domain via usdc\",\"params\":{\"domain\":\"The domain\"}},\"changePrice(uint256)\":{\"details\":\"Change price for domain registration\",\"params\":{\"newPrice\":\"The new price of the domain\"}},\"withdrawDomainEth()\":{\"details\":\"Allows domain owners to withdraw their eth funds from the contract.\"},\"withdrawDomainUsdc()\":{\"details\":\"Allows domain owners to withdraw their usdc funds from the contract.\"},\"withdrawEth()\":{\"details\":\"Withdraw eth to the owner of the contract\"},\"withdrawUsdc()\":{\"details\":\"Withdraw usdc to the owner of the contract\"}},\"title\":\"Domain Registry Interface\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"withdrawDomainEth()\":{\"notice\":\"This function allows domain owners to withdraw the eth funds deposited for their domains.Only the domain owner can invoke this function.If the domain owner has no funds deposited, the function reverts.\"},\"withdrawDomainUsdc()\":{\"notice\":\"This function allows domain owners to withdraw the usdc funds deposited for their domains.Only the domain owner can invoke this function.If the domain owner has no funds deposited, the function reverts.\"},\"withdrawEth()\":{\"notice\":\"Checks if the contract balance is not empty and then makes withdraw to \\\"owner\\\"\"},\"withdrawUsdc()\":{\"notice\":\"Checks if the contract balance is not empty and then makes withdraw to \\\"owner\\\"\"}},\"notice\":\"This interface defines the methods required for interacting with a domain registry contract.\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/interfaces/IDomainRegistry.sol\":\"IDomainRegistry\"},\"evmVersion\":\"shanghai\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":false,\"runs\":200},\"remappings\":[]},\"sources\":{\"contracts/interfaces/IDomainRegistry.sol\":{\"keccak256\":\"0x113a92e187502c1bc85503ceb99460064c6e22fa35d9d2bfb90a042c68763ebc\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://bc0b24722bf56c55c1602f51ce0d84a40907ebc8481f78a0318a09271abad8d4\",\"dweb:/ipfs/QmV5W8yDMUNbPTNMPpNbGFYRjCmZBgLstiseXqTQC5N83A\"]}},\"version\":1}",
+					"storageLayout": {
+						"storage": [],
+						"types": null
+					},
+					"userdoc": {
+						"kind": "user",
+						"methods": {
+							"withdrawDomainEth()": {
+								"notice": "This function allows domain owners to withdraw the eth funds deposited for their domains.Only the domain owner can invoke this function.If the domain owner has no funds deposited, the function reverts."
+							},
+							"withdrawDomainUsdc()": {
+								"notice": "This function allows domain owners to withdraw the usdc funds deposited for their domains.Only the domain owner can invoke this function.If the domain owner has no funds deposited, the function reverts."
+							},
+							"withdrawEth()": {
+								"notice": "Checks if the contract balance is not empty and then makes withdraw to \"owner\""
+							},
+							"withdrawUsdc()": {
+								"notice": "Checks if the contract balance is not empty and then makes withdraw to \"owner\""
+							}
+						},
+						"notice": "This interface defines the methods required for interacting with a domain registry contract.",
+						"version": 1
+					}
+				}
+			}
+		},
+		"sources": {
+			"contracts/interfaces/IDomainRegistry.sol": {
+				"ast": {
+					"absolutePath": "contracts/interfaces/IDomainRegistry.sol",
+					"exportedSymbols": {
+						"IDomainRegistry": [
+							45
+						]
+					},
+					"id": 46,
+					"license": "MIT",
+					"nodeType": "SourceUnit",
+					"nodes": [
+						{
+							"id": 1,
+							"literals": [
+								"solidity",
+								"^",
+								"0.8",
+								".24"
+							],
+							"nodeType": "PragmaDirective",
+							"src": "33:24:0"
+						},
+						{
+							"abstract": false,
+							"baseContracts": [],
+							"canonicalName": "IDomainRegistry",
+							"contractDependencies": [],
+							"contractKind": "interface",
+							"documentation": {
+								"id": 2,
+								"nodeType": "StructuredDocumentation",
+								"src": "59:147:0",
+								"text": " @title Domain Registry Interface\n @notice This interface defines the methods required for interacting with a domain registry contract."
+							},
+							"fullyImplemented": false,
+							"id": 45,
+							"linearizedBaseContracts": [
+								45
+							],
+							"name": "IDomainRegistry",
+							"nameLocation": "217:15:0",
+							"nodeType": "ContractDefinition",
+							"nodes": [
+								{
+									"documentation": {
+										"id": 3,
+										"nodeType": "StructuredDocumentation",
+										"src": "239:111:0",
+										"text": " @dev Change price for domain registration\n @param newPrice The new price of the domain"
+									},
+									"functionSelector": "a2b40d19",
+									"id": 8,
+									"implemented": false,
+									"kind": "function",
+									"modifiers": [],
+									"name": "changePrice",
+									"nameLocation": "364:11:0",
+									"nodeType": "FunctionDefinition",
+									"parameters": {
+										"id": 6,
+										"nodeType": "ParameterList",
+										"parameters": [
+											{
+												"constant": false,
+												"id": 5,
+												"mutability": "mutable",
+												"name": "newPrice",
+												"nameLocation": "384:8:0",
+												"nodeType": "VariableDeclaration",
+												"scope": 8,
+												"src": "376:16:0",
+												"stateVariable": false,
+												"storageLocation": "default",
+												"typeDescriptions": {
+													"typeIdentifier": "t_uint256",
+													"typeString": "uint256"
+												},
+												"typeName": {
+													"id": 4,
+													"name": "uint256",
+													"nodeType": "ElementaryTypeName",
+													"src": "376:7:0",
+													"typeDescriptions": {
+														"typeIdentifier": "t_uint256",
+														"typeString": "uint256"
+													}
+												},
+												"visibility": "internal"
+											}
+										],
+										"src": "375:18:0"
+									},
+									"returnParameters": {
+										"id": 7,
+										"nodeType": "ParameterList",
+										"parameters": [],
+										"src": "402:0:0"
+									},
+									"scope": 45,
+									"src": "355:48:0",
+									"stateMutability": "nonpayable",
+									"virtual": false,
+									"visibility": "external"
+								},
+								{
+									"documentation": {
+										"id": 9,
+										"nodeType": "StructuredDocumentation",
+										"src": "409:79:0",
+										"text": " @dev Buying a domain via eth\n @param domain The domain"
+									},
+									"functionSelector": "1b0e17a3",
+									"id": 14,
+									"implemented": false,
+									"kind": "function",
+									"modifiers": [],
+									"name": "buyDomainViaEth",
+									"nameLocation": "502:15:0",
+									"nodeType": "FunctionDefinition",
+									"parameters": {
+										"id": 12,
+										"nodeType": "ParameterList",
+										"parameters": [
+											{
+												"constant": false,
+												"id": 11,
+												"mutability": "mutable",
+												"name": "domain",
+												"nameLocation": "534:6:0",
+												"nodeType": "VariableDeclaration",
+												"scope": 14,
+												"src": "518:22:0",
+												"stateVariable": false,
+												"storageLocation": "calldata",
+												"typeDescriptions": {
+													"typeIdentifier": "t_string_calldata_ptr",
+													"typeString": "string"
+												},
+												"typeName": {
+													"id": 10,
+													"name": "string",
+													"nodeType": "ElementaryTypeName",
+													"src": "518:6:0",
+													"typeDescriptions": {
+														"typeIdentifier": "t_string_storage_ptr",
+														"typeString": "string"
+													}
+												},
+												"visibility": "internal"
+											}
+										],
+										"src": "517:24:0"
+									},
+									"returnParameters": {
+										"id": 13,
+										"nodeType": "ParameterList",
+										"parameters": [],
+										"src": "558:0:0"
+									},
+									"scope": 45,
+									"src": "493:66:0",
+									"stateMutability": "payable",
+									"virtual": false,
+									"visibility": "external"
+								},
+								{
+									"documentation": {
+										"id": 15,
+										"nodeType": "StructuredDocumentation",
+										"src": "565:80:0",
+										"text": " @dev Buying a domain via usdc\n @param domain The domain"
+									},
+									"functionSelector": "fbd43caa",
+									"id": 20,
+									"implemented": false,
+									"kind": "function",
+									"modifiers": [],
+									"name": "buyDomainViaUsdc",
+									"nameLocation": "659:16:0",
+									"nodeType": "FunctionDefinition",
+									"parameters": {
+										"id": 18,
+										"nodeType": "ParameterList",
+										"parameters": [
+											{
+												"constant": false,
+												"id": 17,
+												"mutability": "mutable",
+												"name": "domain",
+												"nameLocation": "692:6:0",
+												"nodeType": "VariableDeclaration",
+												"scope": 20,
+												"src": "676:22:0",
+												"stateVariable": false,
+												"storageLocation": "calldata",
+												"typeDescriptions": {
+													"typeIdentifier": "t_string_calldata_ptr",
+													"typeString": "string"
+												},
+												"typeName": {
+													"id": 16,
+													"name": "string",
+													"nodeType": "ElementaryTypeName",
+													"src": "676:6:0",
+													"typeDescriptions": {
+														"typeIdentifier": "t_string_storage_ptr",
+														"typeString": "string"
+													}
+												},
+												"visibility": "internal"
+											}
+										],
+										"src": "675:24:0"
+									},
+									"returnParameters": {
+										"id": 19,
+										"nodeType": "ParameterList",
+										"parameters": [],
+										"src": "732:0:0"
+									},
+									"scope": 45,
+									"src": "650:83:0",
+									"stateMutability": "payable",
+									"virtual": false,
+									"visibility": "external"
+								},
+								{
+									"documentation": {
+										"id": 21,
+										"nodeType": "StructuredDocumentation",
+										"src": "739:160:0",
+										"text": " @dev Withdraw usdc to the owner of the contract\n @notice Checks if the contract balance is not empty and then makes withdraw to \"owner\""
+									},
+									"functionSelector": "fee84d4e",
+									"id": 24,
+									"implemented": false,
+									"kind": "function",
+									"modifiers": [],
+									"name": "withdrawUsdc",
+									"nameLocation": "913:12:0",
+									"nodeType": "FunctionDefinition",
+									"parameters": {
+										"id": 22,
+										"nodeType": "ParameterList",
+										"parameters": [],
+										"src": "925:2:0"
+									},
+									"returnParameters": {
+										"id": 23,
+										"nodeType": "ParameterList",
+										"parameters": [],
+										"src": "936:0:0"
+									},
+									"scope": 45,
+									"src": "904:33:0",
+									"stateMutability": "nonpayable",
+									"virtual": false,
+									"visibility": "external"
+								},
+								{
+									"documentation": {
+										"id": 25,
+										"nodeType": "StructuredDocumentation",
+										"src": "943:159:0",
+										"text": " @dev Withdraw eth to the owner of the contract\n @notice Checks if the contract balance is not empty and then makes withdraw to \"owner\""
+									},
+									"functionSelector": "a0ef91df",
+									"id": 28,
+									"implemented": false,
+									"kind": "function",
+									"modifiers": [],
+									"name": "withdrawEth",
+									"nameLocation": "1116:11:0",
+									"nodeType": "FunctionDefinition",
+									"parameters": {
+										"id": 26,
+										"nodeType": "ParameterList",
+										"parameters": [],
+										"src": "1127:2:0"
+									},
+									"returnParameters": {
+										"id": 27,
+										"nodeType": "ParameterList",
+										"parameters": [],
+										"src": "1138:0:0"
+									},
+									"scope": 45,
+									"src": "1107:32:0",
+									"stateMutability": "nonpayable",
+									"virtual": false,
+									"visibility": "external"
+								},
+								{
+									"documentation": {
+										"id": 29,
+										"nodeType": "StructuredDocumentation",
+										"src": "1145:218:0",
+										"text": " @dev Allows buying a child domain under a parent domain.\n @param parentDomain The parent domain under which to register the child domain.\n @param childDomain The name of the child domain."
+									},
+									"functionSelector": "37ee4b47",
+									"id": 36,
+									"implemented": false,
+									"kind": "function",
+									"modifiers": [],
+									"name": "buyChildDomainViaEth",
+									"nameLocation": "1377:20:0",
+									"nodeType": "FunctionDefinition",
+									"parameters": {
+										"id": 34,
+										"nodeType": "ParameterList",
+										"parameters": [
+											{
+												"constant": false,
+												"id": 31,
+												"mutability": "mutable",
+												"name": "parentDomain",
+												"nameLocation": "1423:12:0",
+												"nodeType": "VariableDeclaration",
+												"scope": 36,
+												"src": "1407:28:0",
+												"stateVariable": false,
+												"storageLocation": "calldata",
+												"typeDescriptions": {
+													"typeIdentifier": "t_string_calldata_ptr",
+													"typeString": "string"
+												},
+												"typeName": {
+													"id": 30,
+													"name": "string",
+													"nodeType": "ElementaryTypeName",
+													"src": "1407:6:0",
+													"typeDescriptions": {
+														"typeIdentifier": "t_string_storage_ptr",
+														"typeString": "string"
+													}
+												},
+												"visibility": "internal"
+											},
+											{
+												"constant": false,
+												"id": 33,
+												"mutability": "mutable",
+												"name": "childDomain",
+												"nameLocation": "1461:11:0",
+												"nodeType": "VariableDeclaration",
+												"scope": 36,
+												"src": "1445:27:0",
+												"stateVariable": false,
+												"storageLocation": "calldata",
+												"typeDescriptions": {
+													"typeIdentifier": "t_string_calldata_ptr",
+													"typeString": "string"
+												},
+												"typeName": {
+													"id": 32,
+													"name": "string",
+													"nodeType": "ElementaryTypeName",
+													"src": "1445:6:0",
+													"typeDescriptions": {
+														"typeIdentifier": "t_string_storage_ptr",
+														"typeString": "string"
+													}
+												},
+												"visibility": "internal"
+											}
+										],
+										"src": "1397:81:0"
+									},
+									"returnParameters": {
+										"id": 35,
+										"nodeType": "ParameterList",
+										"parameters": [],
+										"src": "1495:0:0"
+									},
+									"scope": 45,
+									"src": "1368:128:0",
+									"stateMutability": "payable",
+									"virtual": false,
+									"visibility": "external"
+								},
+								{
+									"documentation": {
+										"id": 37,
+										"nodeType": "StructuredDocumentation",
+										"src": "1502:340:0",
+										"text": " @dev Allows domain owners to withdraw their eth funds from the contract.\n @notice This function allows domain owners to withdraw the eth funds deposited for their domains.\n @notice Only the domain owner can invoke this function.\n @notice If the domain owner has no funds deposited, the function reverts."
+									},
+									"functionSelector": "559aae74",
+									"id": 40,
+									"implemented": false,
+									"kind": "function",
+									"modifiers": [],
+									"name": "withdrawDomainEth",
+									"nameLocation": "1856:17:0",
+									"nodeType": "FunctionDefinition",
+									"parameters": {
+										"id": 38,
+										"nodeType": "ParameterList",
+										"parameters": [],
+										"src": "1873:2:0"
+									},
+									"returnParameters": {
+										"id": 39,
+										"nodeType": "ParameterList",
+										"parameters": [],
+										"src": "1884:0:0"
+									},
+									"scope": 45,
+									"src": "1847:38:0",
+									"stateMutability": "nonpayable",
+									"virtual": false,
+									"visibility": "external"
+								},
+								{
+									"documentation": {
+										"id": 41,
+										"nodeType": "StructuredDocumentation",
+										"src": "1891:342:0",
+										"text": " @dev Allows domain owners to withdraw their usdc funds from the contract.\n @notice This function allows domain owners to withdraw the usdc funds deposited for their domains.\n @notice Only the domain owner can invoke this function.\n @notice If the domain owner has no funds deposited, the function reverts."
+									},
+									"functionSelector": "82702ff4",
+									"id": 44,
+									"implemented": false,
+									"kind": "function",
+									"modifiers": [],
+									"name": "withdrawDomainUsdc",
+									"nameLocation": "2247:18:0",
+									"nodeType": "FunctionDefinition",
+									"parameters": {
+										"id": 42,
+										"nodeType": "ParameterList",
+										"parameters": [],
+										"src": "2265:2:0"
+									},
+									"returnParameters": {
+										"id": 43,
+										"nodeType": "ParameterList",
+										"parameters": [],
+										"src": "2276:0:0"
+									},
+									"scope": 45,
+									"src": "2238:39:0",
+									"stateMutability": "nonpayable",
+									"virtual": false,
+									"visibility": "external"
+								}
+							],
+							"scope": 46,
+							"src": "207:2072:0",
+							"usedErrors": [],
+							"usedEvents": []
+						}
+					],
+					"src": "33:2247:0"
+				},
+				"id": 0
+			}
+		}
+	}
+}
