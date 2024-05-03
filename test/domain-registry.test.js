@@ -3,22 +3,38 @@ const { ethers, upgrades } = require('hardhat');
 const {
   takeSnapshot,
 } = require('@nomicfoundation/hardhat-network-helpers');
+const { BigNumber } = require('ethers');
 
 describe('DomainRegistry', function () {
   let snapshotA;
   let DomainRegistry;
   let domainRegistry;
+  let PriceFeed;
+  let priceFeed;
+  let UsdcToken;
+  let usdcToken;
   let owner;
   let addr1;
+  let oneUsdcInTokens;
 
   before(async function () {
     [owner, addr1] = await ethers.getSigners();
-    const price = ethers.parseEther('0.1');
+    const price = ethers.parseUnits('50', 6);
+
+    PriceFeed = await ethers.getContractFactory('PriceFeed');
+    priceFeed = await PriceFeed.deploy();
+    await priceFeed.waitForDeployment();
+
+    UsdcToken = await ethers.getContractFactory('USDC');
+    usdcToken = await UsdcToken.deploy();
+    await usdcToken.waitForDeployment();
 
     DomainRegistry =
       await ethers.getContractFactory('DomainRegistry');
     domainRegistry = await upgrades.deployProxy(DomainRegistry, [
       price,
+      priceFeed.target,
+      usdcToken.target,
     ]);
     await domainRegistry.waitForDeployment();
 
@@ -35,13 +51,13 @@ describe('DomainRegistry', function () {
 
   describe('changePrice', function () {
     it('Should change the registration price', async function () {
-      const newPrice = ethers.parseEther('0.2');
+      const newPrice = ethers.parseUnits('25', 6);
 
       const changePriceTx =
         await domainRegistry.changePrice(newPrice);
 
       expect(
-        await domainRegistry.getDomainRegistrationPrice()
+        await domainRegistry.getRegistrationPriceInUsdc()
       ).to.equal(newPrice);
 
       expect(changePriceTx)
@@ -50,7 +66,7 @@ describe('DomainRegistry', function () {
     });
 
     it('Should revert if called by non-owner', async function () {
-      const price = ethers.parseEther('0.1');
+      const price = ethers.parseUnits('25', 6);
 
       await expect(domainRegistry.connect(addr1).changePrice(price))
         .to.be.revertedWithCustomError(
@@ -61,15 +77,70 @@ describe('DomainRegistry', function () {
     });
   });
 
-  describe('buyDomain', function () {
+  describe('buyDomainViaUsdc', function () {
     it('Should buy a domain successfully', async function () {
       const domain = 'com';
-      const price = ethers.parseEther('0.1');
+      const price = await domainRegistry.getRegistrationPriceInUsdc();
 
-      const buyDomainTransaction = await domainRegistry.buyDomain(
-        domain,
-        { value: price }
+      await usdcToken.approve(domainRegistry.target, price);
+
+      const buyDomainTransaction =
+        await domainRegistry.buyDomainViaUsdc(domain);
+
+      const block = await ethers.provider.getBlock();
+      const blockTimestamp = block.timestamp;
+
+      expect(
+        await usdcToken.balanceOf(domainRegistry.target)
+      ).to.be.equal(price);
+
+      expect(buyDomainTransaction)
+        .to.emit(domainRegistry, 'DomainRegistered')
+        .withArgs(domain, owner, blockTimestamp);
+    });
+
+    it('Should revert if domain already taken', async function () {
+      const domain = 'com';
+      const price = await domainRegistry.getRegistrationPriceInUsdc();
+      await usdcToken.approve(domainRegistry.target, price);
+
+      await domainRegistry.buyDomainViaUsdc(domain);
+
+      await usdcToken.approve(domainRegistry.target, price);
+
+      await expect(
+        domainRegistry.buyDomainViaUsdc(domain)
+      ).to.be.revertedWithCustomError(
+        domainRegistry,
+        'DomainAlreadyTaken'
       );
+    });
+
+    it('Should revert if value sent is incorrect', async function () {
+      const domain = 'com';
+      const price = await domainRegistry.getRegistrationPriceInUsdc();
+      const wrongValue = price / BigInt(2);
+
+      await usdcToken.approve(domainRegistry.target, wrongValue);
+
+      await expect(domainRegistry.buyDomainViaUsdc(domain))
+        .to.be.revertedWithCustomError(
+          domainRegistry,
+          'IncorrectUsdcAmount'
+        )
+        .withArgs(wrongValue, price);
+    });
+  });
+
+  describe('buyDomainViaEth', function () {
+    it('Should buy a domain successfully', async function () {
+      const domain = 'com';
+      const price = await domainRegistry.getRegistrationPriceInEth();
+
+      const buyDomainTransaction =
+        await domainRegistry.buyDomainViaEth(domain, {
+          value: price,
+        });
       const block = await ethers.provider.getBlock();
       const blockTimestamp = block.timestamp;
 
@@ -85,11 +156,11 @@ describe('DomainRegistry', function () {
 
     it('Should revert if domain already taken', async function () {
       const domain = 'com';
-      const price = ethers.parseEther('0.1');
-      await domainRegistry.buyDomain(domain, { value: price });
+      const price = await domainRegistry.getRegistrationPriceInEth();
+      await domainRegistry.buyDomainViaEth(domain, { value: price });
 
       await expect(
-        domainRegistry.buyDomain(domain, {
+        domainRegistry.buyDomainViaEth(domain, {
           value: price,
         })
       ).to.be.revertedWithCustomError(
@@ -100,11 +171,11 @@ describe('DomainRegistry', function () {
 
     it('Should revert if value sent is incorrect', async function () {
       const domain = 'com';
-      const price = ethers.parseEther('0.1');
+      const price = await domainRegistry.getRegistrationPriceInEth();
       const wrongValue = price / BigInt(2);
 
       await expect(
-        domainRegistry.buyDomain(domain, {
+        domainRegistry.buyDomainViaEth(domain, {
           value: wrongValue,
         })
       )
@@ -116,12 +187,64 @@ describe('DomainRegistry', function () {
     });
   });
 
-  describe('withdraw', function () {
+  describe('withdrawEth', function () {
     it('Should withdraw funds from the contract', async function () {
       const domain = 'com';
-      const price = ethers.parseEther('0.1');
+      const price = await domainRegistry.getRegistrationPriceInUsdc();
 
-      await domainRegistry.buyDomain(domain, {
+      await usdcToken.approve(domainRegistry.target, price);
+
+      await domainRegistry.buyDomainViaUsdc(domain);
+
+      const initialContractBalance = await usdcToken.balanceOf(
+        domainRegistry.target
+      );
+
+      expect(initialContractBalance).to.equal(price);
+
+      const block = await ethers.provider.getBlock();
+      const blockTimestamp = block.timestamp;
+
+      const withdrawTx = await domainRegistry.withdrawUsdc();
+
+      const contractBalance = await usdcToken.balanceOf(
+        domainRegistry.target
+      );
+
+      expect(contractBalance).to.equal(BigInt(0));
+
+      expect(withdrawTx).to.changeEtherBalance(owner, price);
+
+      expect(withdrawTx)
+        .to.emit(domainRegistry, 'Withdrawal')
+        .withArgs(price, blockTimestamp);
+    });
+
+    it('Should revert if contract balance is zero', async function () {
+      await expect(domainRegistry.connect(owner).withdrawUsdc())
+        .to.be.revertedWithCustomError(
+          domainRegistry,
+          'NothingToWithdraw'
+        )
+        .withArgs(owner);
+    });
+
+    it('Should revert if called by non-owner', async function () {
+      await expect(domainRegistry.connect(addr1).withdrawUsdc())
+        .to.be.revertedWithCustomError(
+          domainRegistry,
+          'OwnableUnauthorizedAccount'
+        )
+        .withArgs(addr1);
+    });
+  });
+
+  describe('withdrawEth', function () {
+    it('Should withdraw funds from the contract', async function () {
+      const domain = 'com';
+      const price = await domainRegistry.getRegistrationPriceInEth();
+
+      await domainRegistry.buyDomainViaEth(domain, {
         value: price,
       });
 
@@ -134,7 +257,7 @@ describe('DomainRegistry', function () {
       const block = await ethers.provider.getBlock();
       const blockTimestamp = block.timestamp;
 
-      const withdrawTx = await domainRegistry.withdraw();
+      const withdrawTx = await domainRegistry.withdrawEth();
 
       const contractBalance = await ethers.provider.getBalance(
         domainRegistry.getAddress()
@@ -150,7 +273,7 @@ describe('DomainRegistry', function () {
     });
 
     it('Should revert if contract balance is zero', async function () {
-      await expect(domainRegistry.connect(owner).withdraw())
+      await expect(domainRegistry.connect(owner).withdrawEth())
         .to.be.revertedWithCustomError(
           domainRegistry,
           'NothingToWithdraw'
@@ -159,7 +282,7 @@ describe('DomainRegistry', function () {
     });
 
     it('Should revert if called by non-owner', async function () {
-      await expect(domainRegistry.connect(addr1).withdraw())
+      await expect(domainRegistry.connect(addr1).withdrawEth())
         .to.be.revertedWithCustomError(
           domainRegistry,
           'OwnableUnauthorizedAccount'
@@ -168,54 +291,103 @@ describe('DomainRegistry', function () {
     });
   });
 
-  describe('withdrawDomain', function () {
+  describe('withdrawDomainUsdc', function () {
     it('Should withdraw funds from the contract to domain owner', async function () {
       const domain = 'com';
       const childDomain = 'test';
-      const price = ethers.parseEther('0.1');
-
-      await domainRegistry.buyDomain(domain, {
-        value: price,
+      const priceEth =
+        await domainRegistry.getRegistrationPriceInEth();
+      await domainRegistry.buyDomainViaEth(domain, {
+        value: priceEth,
       });
+      const price = await domainRegistry.getRegistrationPriceInUsdc();
 
+      await usdcToken.transfer(addr1, price);
+
+      await usdcToken
+        .connect(addr1)
+        .approve(domainRegistry.target, price);
       await domainRegistry
         .connect(addr1)
-        .buyChildDomain(domain, childDomain, {
-          value: price,
-        });
+        .buyChildDomainViaUsdc(domain, childDomain);
 
-      const initialContractBalance = await ethers.provider.getBalance(
-        domainRegistry.getAddress()
+      const initialContractBalanceUsdc = await usdcToken.balanceOf(
+        domainRegistry.target
       );
 
-      expect(initialContractBalance).to.equal(price * BigInt(2));
+      expect(initialContractBalanceUsdc).to.equal(price);
 
       const block = await ethers.provider.getBlock();
       const blockTimestamp = block.timestamp;
 
-      const withdrawDomainTx = await domainRegistry.withdrawDomain();
+      const withdrawDomainUsdcTx =
+        await domainRegistry.withdrawDomainUsdc();
 
-      const contractBalance = await ethers.provider.getBalance(
-        domainRegistry.getAddress()
-      );
-
-      expect(contractBalance).to.equal(price);
-
-      expect(withdrawDomainTx).to.changeEtherBalance(owner, price);
-
-      expect(withdrawDomainTx)
+      expect(withdrawDomainUsdcTx)
         .to.emit(domainRegistry, 'Withdrawal')
         .withArgs(price, blockTimestamp);
-
-      const finalContractBalance = await ethers.provider.getBalance(
-        domainRegistry.getAddress()
-      );
-
-      expect(finalContractBalance).to.equal(price);
     });
 
     it('Should revert if domain owner funds balance is zero', async function () {
-      await expect(domainRegistry.connect(addr1).withdrawDomain())
+      await expect(domainRegistry.connect(addr1).withdrawDomainUsdc())
+        .to.be.revertedWithCustomError(
+          domainRegistry,
+          'NothingToWithdraw'
+        )
+        .withArgs(addr1);
+    });
+  });
+  describe('withdrawDomainEth', function () {
+    it('Should withdraw funds from the contract to domain owner', async function () {
+      const domain = 'com';
+      const childDomain = 'test';
+      const priceEth =
+        await domainRegistry.getRegistrationPriceInEth();
+
+      await domainRegistry.buyDomainViaEth(domain, {
+        value: priceEth,
+      });
+      await domainRegistry
+        .connect(addr1)
+        .buyChildDomainViaEth(domain, childDomain, {
+          value: priceEth,
+        });
+
+      const initialContractBalanceEth =
+        await ethers.provider.getBalance(domainRegistry.getAddress());
+
+      expect(initialContractBalanceEth).to.equal(
+        priceEth * BigInt(2)
+      );
+      const block = await ethers.provider.getBlock();
+      const blockTimestamp = block.timestamp;
+
+      const withdrawDomainEthTx =
+        await domainRegistry.withdrawDomainEth();
+
+      const contractBalanceEth = await ethers.provider.getBalance(
+        domainRegistry.getAddress()
+      );
+
+      expect(contractBalanceEth).to.equal(priceEth);
+
+      expect(withdrawDomainEthTx).to.changeEtherBalance(
+        owner,
+        priceEth
+      );
+
+      expect(withdrawDomainEthTx)
+        .to.emit(domainRegistry, 'Withdrawal')
+        .withArgs(priceEth, blockTimestamp);
+
+      const finalContractBalanceEth =
+        await ethers.provider.getBalance(domainRegistry.getAddress());
+
+      expect(finalContractBalanceEth).to.equal(priceEth);
+    });
+
+    it('Should revert if domain owner funds balance is zero', async function () {
+      await expect(domainRegistry.connect(addr1).withdrawDomainEth())
         .to.be.revertedWithCustomError(
           domainRegistry,
           'NothingToWithdraw'
@@ -228,20 +400,29 @@ describe('DomainRegistry', function () {
     it('Should buy child domain', async function () {
       const domain = 'com';
       const childDomain = 'test';
+      const childDomain2 = 'test2';
       const expectedResult = 'test.com';
-      const price = ethers.parseEther('0.1');
+      const expectedResult2 = 'test.com';
+      const priceEth =
+        await domainRegistry.getRegistrationPriceInEth();
+      const priceUsdc =
+        await domainRegistry.getRegistrationPriceInUsdc();
 
-      await domainRegistry.buyDomain(domain, {
-        value: price,
+      await domainRegistry.buyDomainViaEth(domain, {
+        value: priceEth,
       });
 
       const block = await ethers.provider.getBlock();
       const blockTimestamp = block.timestamp;
 
       const buyChildDomainTransaction =
-        await domainRegistry.buyChildDomain(domain, childDomain, {
-          value: price,
-        });
+        await domainRegistry.buyChildDomainViaEth(
+          domain,
+          childDomain,
+          {
+            value: priceEth,
+          }
+        );
 
       expect(
         await domainRegistry.getDomainOwner(expectedResult)
@@ -250,22 +431,53 @@ describe('DomainRegistry', function () {
       expect(buyChildDomainTransaction)
         .to.emit(domainRegistry, 'DomainRegistered')
         .withArgs(domain, owner, blockTimestamp);
+
+      await usdcToken.approve(domainRegistry.target, priceUsdc);
+
+      const block2 = await ethers.provider.getBlock();
+      const blockTimestamp2 = block2.timestamp;
+
+      const buyChildDomainUsdcTransaction =
+        await domainRegistry.buyChildDomainViaUsdc(
+          domain,
+          childDomain2,
+          {
+            value: priceUsdc,
+          }
+        );
+
+      expect(
+        await domainRegistry.getDomainOwner(expectedResult2)
+      ).to.be.equal(owner);
+
+      expect(buyChildDomainUsdcTransaction)
+        .to.emit(domainRegistry, 'DomainRegistered')
+        .withArgs(domain, owner, blockTimestamp2);
     });
 
     it('Should revert if child domain already taken', async function () {
       const domain = 'com';
       const childDomain = 'test';
-      const price = ethers.parseEther('0.1');
+      const price = await domainRegistry.getRegistrationPriceInEth();
+      const priceUsdc =
+        await domainRegistry.getRegistrationPriceInUsdc();
 
-      await domainRegistry.buyDomain(domain, { value: price });
-      await domainRegistry.buyChildDomain(domain, childDomain, {
+      await domainRegistry.buyDomainViaEth(domain, { value: price });
+      await domainRegistry.buyChildDomainViaEth(domain, childDomain, {
         value: price,
       });
 
       await expect(
-        domainRegistry.buyChildDomain(domain, childDomain, {
+        domainRegistry.buyChildDomainViaEth(domain, childDomain, {
           value: price,
         })
+      ).to.be.revertedWithCustomError(
+        domainRegistry,
+        'DomainAlreadyTaken'
+      );
+      await usdcToken.approve(domainRegistry.target, priceUsdc);
+      await expect(
+        domainRegistry.buyChildDomainViaUsdc(domain, childDomain)
       ).to.be.revertedWithCustomError(
         domainRegistry,
         'DomainAlreadyTaken'
@@ -275,13 +487,13 @@ describe('DomainRegistry', function () {
     it('Should revert if value sent is incorrect', async function () {
       const domain = 'com';
       const childDomain = 'test';
-      const price = ethers.parseEther('0.1');
+      const price = await domainRegistry.getRegistrationPriceInEth();
       const incorrectValue = price / BigInt(2);
 
-      await domainRegistry.buyDomain(domain, { value: price });
+      await domainRegistry.buyDomainViaEth(domain, { value: price });
 
       await expect(
-        domainRegistry.buyChildDomain(domain, childDomain, {
+        domainRegistry.buyChildDomainViaEth(domain, childDomain, {
           value: incorrectValue,
         })
       )
@@ -295,15 +507,19 @@ describe('DomainRegistry', function () {
     it('Should revert if parent domain doesn`t exist', async function () {
       const domain = 'com';
       const childDomain = 'test';
-      const price = ethers.parseEther('0.1');
+      const price = await domainRegistry.getRegistrationPriceInEth();
       const wrongDomain = 'org';
 
-      await domainRegistry.buyDomain(domain, { value: price });
+      await domainRegistry.buyDomainViaEth(domain, { value: price });
 
       await expect(
-        domainRegistry.buyChildDomain(wrongDomain, childDomain, {
-          value: price,
-        })
+        domainRegistry.buyChildDomainViaEth(
+          wrongDomain,
+          childDomain,
+          {
+            value: price,
+          }
+        )
       )
         .to.be.revertedWithCustomError(
           domainRegistry,
@@ -321,16 +537,18 @@ describe('DomainRegistry', function () {
       const thirdDomain = 'org';
       const fourthDomain = 'io';
 
-      const price = ethers.parseEther('0.1');
+      const price = await domainRegistry.getRegistrationPriceInEth();
 
-      await domainRegistry.buyDomain(firstDomain, { value: price });
-      await domainRegistry.buyDomain(secondDomain, {
+      await domainRegistry.buyDomainViaEth(firstDomain, {
         value: price,
       });
-      await domainRegistry.buyDomain(thirdDomain, {
+      await domainRegistry.buyDomainViaEth(secondDomain, {
         value: price,
       });
-      await domainRegistry.buyDomain(fourthDomain, {
+      await domainRegistry.buyDomainViaEth(thirdDomain, {
+        value: price,
+      });
+      await domainRegistry.buyDomainViaEth(fourthDomain, {
         value: price,
       });
 
@@ -347,16 +565,18 @@ describe('DomainRegistry', function () {
       const thirdDomain = 'org';
       const fourthDomain = 'io';
 
-      const price = ethers.parseEther('0.1');
+      const price = await domainRegistry.getRegistrationPriceInEth();
 
-      await domainRegistry.buyDomain(firstDomain, { value: price });
-      await domainRegistry.buyDomain(secondDomain, {
+      await domainRegistry.buyDomainViaEth(firstDomain, {
         value: price,
       });
-      await domainRegistry.buyDomain(thirdDomain, {
+      await domainRegistry.buyDomainViaEth(secondDomain, {
         value: price,
       });
-      await domainRegistry.buyDomain(fourthDomain, {
+      await domainRegistry.buyDomainViaEth(thirdDomain, {
+        value: price,
+      });
+      await domainRegistry.buyDomainViaEth(fourthDomain, {
         value: price,
       });
 
@@ -386,16 +606,20 @@ describe('DomainRegistry', function () {
       const thirdDomain = 'org';
       const fourthDomain = 'io';
 
-      const price = ethers.parseEther('0.1');
+      const price = await domainRegistry.getRegistrationPriceInEth();
 
-      await domainRegistry.buyDomain(firstDomain, { value: price });
-      await domainRegistry.connect(addr1).buyDomain(secondDomain, {
+      await domainRegistry.buyDomainViaEth(firstDomain, {
         value: price,
       });
-      await domainRegistry.buyDomain(thirdDomain, {
+      await domainRegistry
+        .connect(addr1)
+        .buyDomainViaEth(secondDomain, {
+          value: price,
+        });
+      await domainRegistry.buyDomainViaEth(thirdDomain, {
         value: price,
       });
-      await domainRegistry.buyDomain(fourthDomain, {
+      await domainRegistry.buyDomainViaEth(fourthDomain, {
         value: price,
       });
 
