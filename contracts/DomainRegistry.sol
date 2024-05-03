@@ -35,7 +35,6 @@ contract DomainRegistry is
         mapping(string => address) domainList;
     }
 
-
     /// @custom:storage-location erc7201:domainRegistry.fund
     struct FundStorage {
         /**
@@ -238,13 +237,28 @@ contract DomainRegistry is
         usdcToken = IERC20(_usdcToken);
     }
 
+    // @dev Returns controllers funds in usdc and eth
+    function getControllerFunds(address controller)
+        public
+        view
+        returns (uint256 usdcFunds, uint256 ethFunds)
+    {
+        usdcFunds = _getUsdcFundStorage().domainOwnersFunds[
+            controller
+        ];
+        ethFunds = _getFundStorage().domainOwnersFunds[controller];
+    }
+
     // @dev Returns domain registration price in usdc
     function getRegistrationPriceInEth()
         public
         view
         returns (uint256)
     {
-        return (_getDomainStorage().registrationPrice * 10**2 * 1 ether) / _getEthToUsdPriceFromOracle();
+        return
+            (_getDomainStorage().registrationPrice *
+                10**2 *
+                1 ether) / _getEthToUsdPriceFromOracle();
     }
 
     // @dev Returns domain registration price in usdc
@@ -266,7 +280,7 @@ contract DomainRegistry is
     }
 
     /**
-     * @dev Allows buying a child domain under a parent domain.
+     * @dev Allows buying a child domain under a parent domain by eth.
      * @param parentDomain The parent domain under which to register the child domain.
      * @param childDomain The name of the child domain.
      */
@@ -289,6 +303,11 @@ contract DomainRegistry is
         emit DomainRegistered(domain, msg.sender);
     }
 
+    /**
+     * @dev Allows buying a child domain under a parent domain by usdc.
+     * @param parentDomain The parent domain under which to register the child domain.
+     * @param childDomain The name of the child domain.
+     */
     function buyChildDomainViaUsdc(
         string calldata parentDomain,
         string calldata childDomain
@@ -435,21 +454,22 @@ contract DomainRegistry is
      * @notice If the domain owner has no funds deposited, the function reverts.
      */
     function withdrawDomainUsdc() public {
-        if (_getUsdcFundStorage().domainOwnersFunds[msg.sender] == 0) {
+        if (
+            _getUsdcFundStorage().domainOwnersFunds[msg.sender] == 0
+        ) {
             revert NothingToWithdraw(msg.sender);
         }
 
-        uint256 fundsToSend = _getFundStorage().domainOwnersFunds[msg.sender];
+        uint256 fundsToSend = _getUsdcFundStorage().domainOwnersFunds[
+            msg.sender
+        ];
 
         usdcToken.transfer(msg.sender, fundsToSend);
 
-        _getFundStorage().frozenBalance -= fundsToSend;
-        _getFundStorage().domainOwnersFunds[msg.sender] = 0;
+        _getUsdcFundStorage().frozenBalance -= fundsToSend;
+        _getUsdcFundStorage().domainOwnersFunds[msg.sender] = 0;
 
-        emit Withdrawal(
-            msg.sender,
-            fundsToSend
-        );
+        emit Withdrawal(msg.sender, fundsToSend);
     }
 
     /**
@@ -503,7 +523,7 @@ contract DomainRegistry is
      * @dev Returns current Eth/Usd price
      */
     function _getEthToUsdPriceFromOracle()
-        public 
+        public
         view
         returns (uint256)
     {
@@ -566,17 +586,13 @@ contract DomainRegistry is
      * @dev Transfering usdc funds from sender to the contract
      */
     function transferUsdc(uint256 allowance) private {
-        usdcToken.transferFrom(
-            msg.sender,
-            address(this),
-            allowance
-        );
+        usdcToken.transferFrom(msg.sender, address(this), allowance);
     }
 
     /**
      * @dev Returns balance of the contract
      */
-    function getUsdcContractBalance() private view returns(uint256) {
+    function getUsdcContractBalance() private view returns (uint256) {
         return usdcToken.balanceOf(address(this));
     }
 }

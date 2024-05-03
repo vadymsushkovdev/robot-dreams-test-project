@@ -77,29 +77,8 @@ describe('DomainRegistry', function () {
     });
   });
 
-  describe('buyDomain', function () {
-    it('Should buy a domain vie eth successfully', async function () {
-      const domain = 'com';
-      const price = await domainRegistry.getRegistrationPriceInEth();
-
-      const buyDomainTransaction =
-        await domainRegistry.buyDomainViaEth(domain, {
-          value: price,
-        });
-      const block = await ethers.provider.getBlock();
-      const blockTimestamp = block.timestamp;
-
-      expect(buyDomainTransaction).to.changeEtherBalance(
-        owner,
-        price
-      );
-
-      expect(buyDomainTransaction)
-        .to.emit(domainRegistry, 'DomainRegistered')
-        .withArgs(domain, owner, blockTimestamp);
-    });
-
-    it('Should buy a domain vie usdc successfully', async function () {
+  describe('buyDomainViaUsdc', function () {
+    it('Should buy a domain successfully', async function () {
       const domain = 'com';
       const price = await domainRegistry.getRegistrationPriceInUsdc();
 
@@ -114,6 +93,61 @@ describe('DomainRegistry', function () {
       expect(
         await usdcToken.balanceOf(domainRegistry.target)
       ).to.be.equal(price);
+
+      expect(buyDomainTransaction)
+        .to.emit(domainRegistry, 'DomainRegistered')
+        .withArgs(domain, owner, blockTimestamp);
+    });
+
+    it('Should revert if domain already taken', async function () {
+      const domain = 'com';
+      const price = await domainRegistry.getRegistrationPriceInUsdc();
+      await usdcToken.approve(domainRegistry.target, price);
+
+      await domainRegistry.buyDomainViaUsdc(domain);
+
+      await usdcToken.approve(domainRegistry.target, price);
+
+      await expect(
+        domainRegistry.buyDomainViaUsdc(domain)
+      ).to.be.revertedWithCustomError(
+        domainRegistry,
+        'DomainAlreadyTaken'
+      );
+    });
+
+    it('Should revert if value sent is incorrect', async function () {
+      const domain = 'com';
+      const price = await domainRegistry.getRegistrationPriceInUsdc();
+      const wrongValue = price / BigInt(2);
+
+      await usdcToken.approve(domainRegistry.target, wrongValue);
+
+      await expect(domainRegistry.buyDomainViaUsdc(domain))
+        .to.be.revertedWithCustomError(
+          domainRegistry,
+          'IncorrectUsdcAmount'
+        )
+        .withArgs(wrongValue, price);
+    });
+  });
+
+  describe('buyDomainViaEth', function () {
+    it('Should buy a domain successfully', async function () {
+      const domain = 'com';
+      const price = await domainRegistry.getRegistrationPriceInEth();
+
+      const buyDomainTransaction =
+        await domainRegistry.buyDomainViaEth(domain, {
+          value: price,
+        });
+      const block = await ethers.provider.getBlock();
+      const blockTimestamp = block.timestamp;
+
+      expect(buyDomainTransaction).to.changeEtherBalance(
+        owner,
+        price
+      );
 
       expect(buyDomainTransaction)
         .to.emit(domainRegistry, 'DomainRegistered')
@@ -153,40 +187,8 @@ describe('DomainRegistry', function () {
     });
   });
 
-  describe('withdraw', function () {
-    it('Should withdraw eth funds from the contract', async function () {
-      const domain = 'com';
-      const price = await domainRegistry.getRegistrationPriceInEth();
-
-      await domainRegistry.buyDomainViaEth(domain, {
-        value: price,
-      });
-
-      const initialContractBalance = await ethers.provider.getBalance(
-        domainRegistry.getAddress()
-      );
-
-      expect(initialContractBalance).to.equal(price);
-
-      const block = await ethers.provider.getBlock();
-      const blockTimestamp = block.timestamp;
-
-      const withdrawTx = await domainRegistry.withdrawEth();
-
-      const contractBalance = await ethers.provider.getBalance(
-        domainRegistry.getAddress()
-      );
-
-      expect(contractBalance).to.equal(BigInt(0));
-
-      expect(withdrawTx).to.changeEtherBalance(owner, price);
-
-      expect(withdrawTx)
-        .to.emit(domainRegistry, 'Withdrawal')
-        .withArgs(price, blockTimestamp);
-    });
-
-    it('Should withdraw usdc funds from the contract', async function () {
+  describe('withdrawEth', function () {
+    it('Should withdraw funds from the contract', async function () {
       const domain = 'com';
       const price = await domainRegistry.getRegistrationPriceInUsdc();
 
@@ -219,14 +221,59 @@ describe('DomainRegistry', function () {
     });
 
     it('Should revert if contract balance is zero', async function () {
-      await expect(domainRegistry.connect(owner).withdrawEth())
+      await expect(domainRegistry.connect(owner).withdrawUsdc())
         .to.be.revertedWithCustomError(
           domainRegistry,
           'NothingToWithdraw'
         )
         .withArgs(owner);
+    });
 
-      await expect(domainRegistry.connect(owner).withdrawUsdc())
+    it('Should revert if called by non-owner', async function () {
+      await expect(domainRegistry.connect(addr1).withdrawUsdc())
+        .to.be.revertedWithCustomError(
+          domainRegistry,
+          'OwnableUnauthorizedAccount'
+        )
+        .withArgs(addr1);
+    });
+  });
+
+  describe('withdrawEth', function () {
+    it('Should withdraw funds from the contract', async function () {
+      const domain = 'com';
+      const price = await domainRegistry.getRegistrationPriceInEth();
+
+      await domainRegistry.buyDomainViaEth(domain, {
+        value: price,
+      });
+
+      const initialContractBalance = await ethers.provider.getBalance(
+        domainRegistry.getAddress()
+      );
+
+      expect(initialContractBalance).to.equal(price);
+
+      const block = await ethers.provider.getBlock();
+      const blockTimestamp = block.timestamp;
+
+      const withdrawTx = await domainRegistry.withdrawEth();
+
+      const contractBalance = await ethers.provider.getBalance(
+        domainRegistry.getAddress()
+      );
+
+      expect(contractBalance).to.equal(BigInt(0));
+
+      expect(withdrawTx).to.changeEtherBalance(owner, price);
+
+      expect(withdrawTx)
+        .to.emit(domainRegistry, 'Withdrawal')
+        .withArgs(price, blockTimestamp);
+    });
+
+    it('Should revert if contract balance is zero', async function () {
+      await expect(domainRegistry.connect(owner).withdrawEth())
         .to.be.revertedWithCustomError(
           domainRegistry,
           'NothingToWithdraw'
@@ -241,26 +288,61 @@ describe('DomainRegistry', function () {
           'OwnableUnauthorizedAccount'
         )
         .withArgs(addr1);
+    });
+  });
 
-      await expect(domainRegistry.connect(addr1).withdrawUsdc())
+  describe('withdrawDomainUsdc', function () {
+    it('Should withdraw funds from the contract to domain owner', async function () {
+      const domain = 'com';
+      const childDomain = 'test';
+      const priceEth =
+        await domainRegistry.getRegistrationPriceInEth();
+      await domainRegistry.buyDomainViaEth(domain, {
+        value: priceEth,
+      });
+      const price = await domainRegistry.getRegistrationPriceInUsdc();
+
+      await usdcToken.transfer(addr1, price);
+
+      await usdcToken
+        .connect(addr1)
+        .approve(domainRegistry.target, price);
+      await domainRegistry
+        .connect(addr1)
+        .buyChildDomainViaUsdc(domain, childDomain);
+
+      const initialContractBalanceUsdc = await usdcToken.balanceOf(
+        domainRegistry.target
+      );
+
+      expect(initialContractBalanceUsdc).to.equal(price);
+
+      const block = await ethers.provider.getBlock();
+      const blockTimestamp = block.timestamp;
+
+      const withdrawDomainUsdcTx =
+        await domainRegistry.withdrawDomainUsdc();
+
+      expect(withdrawDomainUsdcTx)
+        .to.emit(domainRegistry, 'Withdrawal')
+        .withArgs(price, blockTimestamp);
+    });
+
+    it('Should revert if domain owner funds balance is zero', async function () {
+      await expect(domainRegistry.connect(addr1).withdrawDomainUsdc())
         .to.be.revertedWithCustomError(
           domainRegistry,
-          'OwnableUnauthorizedAccount'
+          'NothingToWithdraw'
         )
         .withArgs(addr1);
     });
   });
-
-  describe('withdrawDomain', function () {
+  describe('withdrawDomainEth', function () {
     it('Should withdraw funds from the contract to domain owner', async function () {
       const domain = 'com';
       const childDomain = 'test';
-      const childDomain2 = 'test2';
       const priceEth =
         await domainRegistry.getRegistrationPriceInEth();
-      const priceUsdc =
-        await domainRegistry.getRegistrationPriceInUsdc();
-      await usdcToken.transfer(addr1, priceUsdc);
 
       await domainRegistry.buyDomainViaEth(domain, {
         value: priceEth,
@@ -271,24 +353,12 @@ describe('DomainRegistry', function () {
           value: priceEth,
         });
 
-      await usdcToken
-        .connect(addr1)
-        .approve(domainRegistry.target, priceUsdc);
-      await domainRegistry
-        .connect(addr1)
-        .buyChildDomainViaUsdc(domain, childDomain2);
-
       const initialContractBalanceEth =
         await ethers.provider.getBalance(domainRegistry.getAddress());
-      const initialContractBalanceUsdc = await usdcToken.balanceOf(
-        domainRegistry.target
-      );
 
       expect(initialContractBalanceEth).to.equal(
         priceEth * BigInt(2)
       );
-      expect(initialContractBalanceUsdc).to.equal(priceUsdc);
-
       const block = await ethers.provider.getBlock();
       const blockTimestamp = block.timestamp;
 
@@ -314,27 +384,10 @@ describe('DomainRegistry', function () {
         await ethers.provider.getBalance(domainRegistry.getAddress());
 
       expect(finalContractBalanceEth).to.equal(priceEth);
-
-      const block2 = await ethers.provider.getBlock();
-      const blockTimestamp2 = block2.timestamp;
-
-      const withdrawDomainUsdcTx =
-        await domainRegistry.withdrawDomainUsdc();
-
-      expect(withdrawDomainUsdcTx)
-        .to.emit(domainRegistry, 'Withdrawal')
-        .withArgs(priceUsdc, blockTimestamp2);
     });
 
     it('Should revert if domain owner funds balance is zero', async function () {
       await expect(domainRegistry.connect(addr1).withdrawDomainEth())
-        .to.be.revertedWithCustomError(
-          domainRegistry,
-          'NothingToWithdraw'
-        )
-        .withArgs(addr1);
-
-      await expect(domainRegistry.connect(addr1).withdrawDomainUsdc())
         .to.be.revertedWithCustomError(
           domainRegistry,
           'NothingToWithdraw'

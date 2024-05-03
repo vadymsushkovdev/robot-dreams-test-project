@@ -40,11 +40,21 @@ interface IDomainRegistry {
     function withdrawEth() external;
 
     /**
-     * @dev Allows buying a child domain under a parent domain.
+     * @dev Allows buying a child domain under a parent domain by eth.
      * @param parentDomain The parent domain under which to register the child domain.
      * @param childDomain The name of the child domain.
      */
     function buyChildDomainViaEth(
+        string calldata parentDomain,
+        string calldata childDomain
+    ) external payable;
+
+    /**
+     * @dev Allows buying a child domain under a parent domain by usdc.
+     * @param parentDomain The parent domain under which to register the child domain.
+     * @param childDomain The name of the child domain.
+     */
+    function buyChildDomainViaUsdc(
         string calldata parentDomain,
         string calldata childDomain
     ) external payable;
